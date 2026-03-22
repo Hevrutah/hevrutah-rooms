@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(start http://localhost:5175)",
+      "Bash(start chrome:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(cat /c/Users/elakn/hevrutah-rooms/.env*)"
+    ]
+  }
+}
