@@ -4,13 +4,11 @@ import logo from './assets/logo.jpg';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
 import { WeekNav } from './components/WeekNav';
-import { StatsBar } from './components/StatsBar';
 import { WeekGrid } from './components/WeekGrid';
 import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
-import { computeWeekStats, getWeekBounds } from './utils';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
 import { GOOGLE_SCOPES } from './constants';
 
@@ -237,10 +235,7 @@ function Dashboard({
 
   const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(calendarToken, rangeStart, rangeEnd);
 
-  // Stats for current week
-  const { start: weekStart, end: weekEnd } = getWeekBounds(new Date());
-  const stats = computeWeekStats(rooms, weekStart, weekEnd);
-
+  
   // Detect expired Google token
   useEffect(() => {
     if (error && (error.includes('401') || error.includes('Invalid Credentials'))) {
