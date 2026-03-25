@@ -91,7 +91,6 @@ function AdminGoogleSetup({
   const connectGoogle = useGoogleLogin({
     flow: 'auth-code',
     scope: GOOGLE_SCOPES,
-    prompt: 'consent',
     onSuccess: async (res) => {
       setLoading(true);
       setError(null);
