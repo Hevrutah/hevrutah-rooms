@@ -98,7 +98,7 @@ function AdminGoogleSetup({
         const r = await fetch('/api/calendar/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-          body: JSON.stringify({ code: res.code, redirectUri: window.location.origin }),
+          body: JSON.stringify({ code: res.code, redirectUri: 'postmessage' }),
         });
         const data = await r.json();
         if (data.message === 'MANUAL_SAVE_REQUIRED') {
