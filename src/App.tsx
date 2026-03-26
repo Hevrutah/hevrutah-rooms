@@ -13,7 +13,7 @@ import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
 import { GOOGLE_SCOPES } from './constants';
 
 const LOAD_MORE = 14;
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string || '504708739043-4c9j52bcvtofeul3u2vims5pp01ht1lp.apps.googleusercontent.com';
 
 // ── Session storage helpers ──────────────────────────────────────
 
