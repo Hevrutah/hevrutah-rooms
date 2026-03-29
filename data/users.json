@@ -6,5 +6,13 @@
     "passwordHash": "$2b$12$9gSp.CzzK/VrEmOiK5c81eX2QDhnWaB1CQrt9qEM1R5soQ9a7KgyW",
     "role": "admin",
     "therapistName": null
+  },
+  {
+    "id": "1774777355201",
+    "name": "אלה היימן",
+    "username": "elah",
+    "passwordHash": "$2b$12$TBWf5iM06EOu0tqA0srhTOlzXIUt4YooQIGYXtqZ5l.iOmix2I1ui",
+    "role": "therapist",
+    "therapistName": "אלה היימן"
   }
 ]
