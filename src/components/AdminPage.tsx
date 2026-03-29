@@ -182,7 +182,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
 
         {/* Add user form */}
         {showForm && (
-          <form onSubmit={handleAdd} style={{ background: 'white', borderRadius: 10, padding: 20, border: '1px solid #e2e8f0', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <form noValidate onSubmit={handleAdd} style={{ background: 'white', borderRadius: 10, padding: 20, border: '1px solid #e2e8f0', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 15, color: '#1e293b' }}>משתמש חדש</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
@@ -203,7 +203,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>כתובת מייל</label>
-                <input type="email" style={inputStyle} value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="user@example.com" />
+                <input type="text" autoComplete="off" style={inputStyle} value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="user@example.com" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>סיסמה</label>
@@ -276,7 +276,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
       {/* Edit modal */}
       {editUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, direction: 'rtl' }}>
-          <form onSubmit={handleEdit} style={{ background: 'white', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <form noValidate onSubmit={handleEdit} style={{ background: 'white', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: 16, color: '#1e293b' }}>עריכת משתמש: {editUser.username}</h3>
               <button type="button" onClick={() => setEditUser(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
