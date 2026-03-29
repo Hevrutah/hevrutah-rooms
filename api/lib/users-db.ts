@@ -12,7 +12,7 @@ export interface User {
   therapistName?: string | null;
 }
 
-const REDIS_KEY = 'hevrutah:users';
+const REDIS_KEY = 'hevrutah:users:v2';
 
 function isRedisConfigured(): boolean {
   return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);

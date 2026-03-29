@@ -96,7 +96,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { name, password, role, email, therapistName } = req.body || {};
 
-    if (name) users[idx].name = name;
+    if (name) {
+      users[idx].name = name;
+      // For therapists, therapistName must match the event name in Google Calendar
+      if (users[idx].role === 'therapist') users[idx].therapistName = name;
+    }
     if (email !== undefined) users[idx].email = email || null;
     if (therapistName !== undefined) users[idx].therapistName = therapistName || null;
     if (role && ['admin', 'therapist'].includes(role)) {
