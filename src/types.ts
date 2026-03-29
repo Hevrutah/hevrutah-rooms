@@ -10,9 +10,12 @@ export interface CalendarEvent {
   creatorEmail?: string;
 }
 
+export type UserRole = 'admin' | 'hevrutah' | 'external';
+
 export interface UserInfo {
   username: string;
   name: string;
+  role: UserRole;
   isAdmin: boolean;
   therapistName: string | null; // matched against event summary for permission checks
 }

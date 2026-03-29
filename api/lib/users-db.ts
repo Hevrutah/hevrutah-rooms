@@ -8,7 +8,7 @@ export interface User {
   username: string;
   email?: string | null;
   passwordHash: string;
-  role: 'admin' | 'therapist';
+  role: 'admin' | 'hevrutah' | 'external';
   therapistName?: string | null;
 }
 

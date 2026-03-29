@@ -6,7 +6,14 @@
       "Bash(start chrome:*)",
       "Bash(npx kill-port:*)",
       "Bash(curl -s http://localhost:5173)",
-      "Bash(cat /c/Users/elakn/hevrutah-rooms/.env*)"
+      "Bash(cat /c/Users/elakn/hevrutah-rooms/.env*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(vercel --version)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const bcrypt = require\\(''bcryptjs''\\); bcrypt.hash\\(''Galgal1123'', 12\\).then\\(h => console.log\\(h\\)\\);\")",
+      "Bash(npm run:*)"
     ]
   }
 }

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import logo from '../assets/logo.jpg';
 
+import type { UserRole } from '../types';
+
 interface Props {
-  onLogin: (jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null) => void;
+  onLogin: (jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserRole) => void;
 }
 
 export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
@@ -33,7 +35,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
         setError(data.error || 'שגיאה בהתחברות');
         return;
       }
-      onLogin(data.token, data.user.username, data.user.name, data.user.role === 'admin', data.user.therapistName ?? null);
+      onLogin(data.token, data.user.username, data.user.name, data.user.role === 'admin', data.user.therapistName ?? null, data.user.role);
     } catch {
       setError('שגיאת רשת. בדוק חיבור לאינטרנט.');
     } finally {

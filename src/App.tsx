@@ -447,8 +447,8 @@ function AppInner() {
     resolveGoogleToken(session.jwt, session.user);
   }, []);
 
-  async function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null) {
-    const user: UserInfo = { username, name, isAdmin, therapistName };
+  async function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserInfo['role'] = 'hevrutah') {
+    const user: UserInfo = { username, name, role, isAdmin, therapistName };
     saveSession(jwt, user);
     await resolveGoogleToken(jwt, user);
   }

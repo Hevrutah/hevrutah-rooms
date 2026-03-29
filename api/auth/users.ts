@@ -8,7 +8,7 @@ interface JwtPayload {
   userId: string;
   username: string;
   name: string;
-  role: 'admin' | 'therapist';
+  role: 'admin' | 'hevrutah' | 'external';
 }
 
 function verifyToken(req: VercelRequest): JwtPayload | null {
@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!name || !username || !password || !role) {
       return res.status(400).json({ error: 'כל השדות נדרשים' });
     }
-    if (!['admin', 'therapist'].includes(role)) {
+    if (!['admin', 'hevrutah', 'external'].includes(role)) {
       return res.status(400).json({ error: 'תפקיד לא חוקי' });
     }
 
@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       email: email || null,
       passwordHash,
       role: role as 'admin' | 'therapist',
-      therapistName: therapistName || null,
+      therapistName: (role !== 'admin') ? (therapistName || name) : null,
     };
 
     users.push(newUser);
@@ -103,9 +103,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (email !== undefined) users[idx].email = email || null;
     if (therapistName !== undefined) users[idx].therapistName = therapistName || null;
-    if (role && ['admin', 'therapist'].includes(role)) {
+    if (role && ['admin', 'hevrutah', 'external'].includes(role)) {
       users[idx].role = role;
-      if (role === 'therapist' && !users[idx].therapistName) {
+      if (role !== 'admin' && !users[idx].therapistName) {
         users[idx].therapistName = users[idx].name;
       }
       if (role === 'admin') users[idx].therapistName = null;

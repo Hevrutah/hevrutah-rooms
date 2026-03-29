@@ -6,7 +6,7 @@ interface AppUser {
   name: string;
   username: string;
   email: string | null;
-  role: 'admin' | 'therapist';
+  role: 'admin' | 'hevrutah' | 'external';
   therapistName: string | null;
 }
 
@@ -18,7 +18,8 @@ interface Props {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'מנהל',
-  therapist: 'מטפל',
+  hevrutah: 'מטפל חברותא',
+  external: 'מטפל חיצוני',
 };
 
 const inputStyle: React.CSSProperties = {
@@ -40,14 +41,14 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'therapist'>('therapist');
+  const [newRole, setNewRole] = useState<'admin' | 'hevrutah' | 'external'>('hevrutah');
   const [saving, setSaving] = useState(false);
 
   // Edit modal state
   const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editRole, setEditRole] = useState<'admin' | 'therapist'>('therapist');
+  const [editRole, setEditRole] = useState<'admin' | 'hevrutah' | 'external'>('hevrutah');
   const [editPassword, setEditPassword] = useState('');
   const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -85,14 +86,14 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
         body: JSON.stringify({
           name: newName, username: newUsername, password: newPassword,
           role: newRole, email: newEmail || null,
-          therapistName: newRole === 'therapist' ? newName : null,
+          therapistName: newRole !== 'admin' ? newName : null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'שגיאה ביצירת משתמש');
       setNewName(''); setNewUsername(''); setNewEmail('');
       setNewPassword(''); setNewPasswordConfirm('');
-      setNewRole('therapist');
+      setNewRole('hevrutah');
       setShowForm(false);
       fetchUsers();
     } catch (e) {
@@ -106,7 +107,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
     setEditUser(u);
     setEditName(u.name);
     setEditEmail(u.email || '');
-    setEditRole(u.role);
+    setEditRole(u.role as 'admin' | 'hevrutah' | 'external');
     setEditPassword('');
     setEditPasswordConfirm('');
   }
@@ -190,8 +191,9 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>תפקיד</label>
-                <select style={inputStyle} value={newRole} onChange={e => setNewRole(e.target.value as 'admin' | 'therapist')}>
-                  <option value="therapist">מטפל</option>
+                <select style={inputStyle} value={newRole} onChange={e => setNewRole(e.target.value as 'admin' | 'hevrutah' | 'external')}>
+                  <option value="hevrutah">מטפל חברותא</option>
+                  <option value="external">מטפל חיצוני</option>
                   <option value="admin">מנהל</option>
                 </select>
               </div>
@@ -292,9 +294,10 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>תפקיד</label>
-              <select style={inputStyle} value={editRole} onChange={e => setEditRole(e.target.value as 'admin' | 'therapist')}
+              <select style={inputStyle} value={editRole} onChange={e => setEditRole(e.target.value as 'admin' | 'hevrutah' | 'external')}
                 disabled={editUser.username === user.username}>
-                <option value="therapist">מטפל</option>
+                <option value="hevrutah">מטפל חברותא</option>
+                <option value="external">מטפל חיצוני</option>
                 <option value="admin">מנהל</option>
               </select>
               {editUser.username === user.username && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>לא ניתן לשנות תפקיד של עצמך</div>}
