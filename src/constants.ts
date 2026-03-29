@@ -8,7 +8,7 @@ export const ROOM_CALENDARS = [
 ];
 
 export const HOURS_START = 7;
-export const HOURS_END = 20;
+export const HOURS_END = 22;
 export const REFRESH_INTERVAL_MS = 60_000;
 
 // Full calendar scope required for calendarList.list + events CRUD
