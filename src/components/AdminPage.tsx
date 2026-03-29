@@ -312,7 +312,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
               {editUser.username === user.username && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>לא ניתן לשנות תפקיד של עצמך</div>}
             </div>
 
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+            {user.isAdmin && <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
               {!showPasswordChange ? (
                 <button type="button" onClick={() => setShowPasswordChange(true)}
                   style={{ padding: '7px 14px', background: '#f8fafc', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -342,7 +342,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
                   </button>
                 </>
               )}
-            </div>
+            </div>}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               {editUser.username !== user.username && (
