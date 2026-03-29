@@ -1,29 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
-interface User {
-  id: string;
-  name: string;
-  username: string;
-  passwordHash: string;
-  role: 'admin' | 'therapist';
-  therapistName?: string | null;
-}
-
-function loadUsers(): User[] {
-  try {
-    const filePath = join(process.cwd(), 'data', 'users.json');
-    return JSON.parse(readFileSync(filePath, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
+import { getUsers } from '../lib/users-db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -36,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'חסרים שם משתמש או סיסמה' });
   }
 
-  const users = loadUsers();
+  const users = await getUsers();
   const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
   if (!user) {

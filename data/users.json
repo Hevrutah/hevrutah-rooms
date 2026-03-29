@@ -2,8 +2,8 @@
   {
     "id": "1",
     "name": "יעד מידן",
-    "username": "yaad",
-    "passwordHash": "$2b$12$9gSp.CzzK/VrEmOiK5c81eX2QDhnWaB1CQrt9qEM1R5soQ9a7KgyW",
+    "username": "yaadm",
+    "passwordHash": "$2b$12$VfC.AS3XWlWGR1woeK/3Hu2Y7vkATXV3cdMEx1kKzr29WwEmCl0oG",
     "role": "admin",
     "therapistName": null
   },
