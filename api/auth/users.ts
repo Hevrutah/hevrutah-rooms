@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getUsers, saveUsers } from '../lib/users-db.js';
+import { sendWelcomeEmail } from '../lib/email.js';
 
 interface JwtPayload {
   userId: string;
@@ -20,7 +21,7 @@ function verifyToken(req: VercelRequest): JwtPayload | null {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -30,21 +31,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const isAdmin = caller.role === 'admin';
 
+  // GET — list users
   if (req.method === 'GET') {
     const users = await getUsers();
-    const list = isAdmin
-      ? users
-      : users.filter(u => u.username === caller.username);
+    const list = isAdmin ? users : users.filter(u => u.username === caller.username);
     return res.status(200).json(
-      list.map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, therapistName: u.therapistName ?? null }))
+      list.map(u => ({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null }))
     );
   }
 
+  // POST — create user (admin only)
   if (req.method === 'POST') {
-    // Only admins can create users
     if (!isAdmin) return res.status(403).json({ error: 'רק מנהל יכול להוסיף משתמשים' });
 
-    const { name, username, password, role, therapistName } = req.body || {};
+    const { name, username, password, role, therapistName, email } = req.body || {};
     if (!name || !username || !password || !role) {
       return res.status(400).json({ error: 'כל השדות נדרשים' });
     }
@@ -62,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       id: Date.now().toString(),
       name,
       username,
+      email: email || null,
       passwordHash,
       role: role as 'admin' | 'therapist',
       therapistName: therapistName || null,
@@ -71,12 +72,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await saveUsers(users);
     } catch {
-      return res.status(503).json({ error: 'מסד נתונים לא מוגדר. נא להגדיר Upstash Redis.' });
+      return res.status(503).json({ error: 'מסד נתונים לא מוגדר' });
     }
 
-    return res.status(201).json({ id: newUser.id, name, username, role, therapistName: newUser.therapistName });
+    // Send welcome email if address provided
+    if (email) {
+      sendWelcomeEmail(email, name, username, password).catch(() => {});
+    }
+
+    return res.status(201).json({ id: newUser.id, name, username, email: newUser.email, role, therapistName: newUser.therapistName });
   }
 
+  // PATCH — edit user (admin only)
+  if (req.method === 'PATCH') {
+    if (!isAdmin) return res.status(403).json({ error: 'רק מנהל יכול לערוך משתמשים' });
+
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'חסר ID' });
+
+    const users = await getUsers();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'משתמש לא נמצא' });
+
+    const { name, password, role, email, therapistName } = req.body || {};
+
+    if (name) users[idx].name = name;
+    if (email !== undefined) users[idx].email = email || null;
+    if (therapistName !== undefined) users[idx].therapistName = therapistName || null;
+    if (role && ['admin', 'therapist'].includes(role)) {
+      users[idx].role = role;
+      if (role === 'therapist' && !users[idx].therapistName) {
+        users[idx].therapistName = users[idx].name;
+      }
+      if (role === 'admin') users[idx].therapistName = null;
+    }
+    if (password) {
+      users[idx].passwordHash = await bcrypt.hash(password, 12);
+    }
+
+    try {
+      await saveUsers(users);
+    } catch {
+      return res.status(503).json({ error: 'מסד נתונים לא מוגדר' });
+    }
+
+    const u = users[idx];
+    return res.status(200).json({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null });
+  }
+
+  // DELETE — remove user
   if (req.method === 'DELETE') {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'חסר ID' });
@@ -86,13 +130,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (idx === -1) return res.status(404).json({ error: 'משתמש לא נמצא' });
 
     const targetUser = users[idx];
-
-    // Therapists can only delete themselves
     if (!isAdmin && targetUser.username !== caller.username) {
       return res.status(403).json({ error: 'מטפל יכול למחוק רק את עצמו' });
     }
-
-    // Nobody can delete their own account while logged in as admin (prevent lockout)
     if (isAdmin && targetUser.username === caller.username) {
       return res.status(400).json({ error: 'לא ניתן למחוק את עצמך' });
     }
@@ -101,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await saveUsers(users);
     } catch {
-      return res.status(503).json({ error: 'מסד נתונים לא מוגדר. נא להגדיר Upstash Redis.' });
+      return res.status(503).json({ error: 'מסד נתונים לא מוגדר' });
     }
 
     return res.status(200).json({ success: true });

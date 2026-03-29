@@ -6,6 +6,7 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email?: string | null;
   passwordHash: string;
   role: 'admin' | 'therapist';
   therapistName?: string | null;
