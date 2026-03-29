@@ -49,6 +49,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'hevrutah' | 'external'>('hevrutah');
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [editPassword, setEditPassword] = useState('');
   const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -108,6 +109,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
     setEditName(u.name);
     setEditEmail(u.email || '');
     setEditRole(u.role as 'admin' | 'hevrutah' | 'external');
+    setShowPasswordChange(false);
     setEditPassword('');
     setEditPasswordConfirm('');
   }
@@ -123,7 +125,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
     setError(null);
     try {
       const body: Record<string, unknown> = { name: editName, email: editEmail || null, role: editRole };
-      if (editPassword) body.password = editPassword;
+      if (showPasswordChange && editPassword) body.password = editPassword;
       const res = await fetch(`/api/auth/users?id=${editUser.id}`, {
         method: 'PATCH',
         headers,
@@ -304,25 +306,34 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
             </div>
 
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>שינוי סיסמה (השאר ריק לשמירה)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 3 }}>סיסמה חדשה</label>
-                  <input type="password" style={inputStyle} value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="סיסמה חדשה" />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 3 }}>אימות</label>
-                  <input
-                    type="password"
-                    style={{ ...inputStyle, borderColor: editPasswordConfirm && editPassword !== editPasswordConfirm ? '#f87171' : '#d1d5db' }}
-                    value={editPasswordConfirm}
-                    onChange={e => setEditPasswordConfirm(e.target.value)}
-                    placeholder="הכנס שוב"
-                  />
-                </div>
-              </div>
-              {editPasswordConfirm && editPassword !== editPasswordConfirm && (
-                <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>הסיסמאות אינן תואמות</div>
+              {!showPasswordChange ? (
+                <button type="button" onClick={() => setShowPasswordChange(true)}
+                  style={{ padding: '7px 14px', background: '#f8fafc', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  🔑 שינוי סיסמה
+                </button>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>סיסמה חדשה</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 3 }}>סיסמה חדשה</label>
+                      <input type="password" autoComplete="new-password" style={inputStyle} value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="סיסמה חדשה" autoFocus />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 3 }}>אימות</label>
+                      <input type="password" autoComplete="new-password"
+                        style={{ ...inputStyle, borderColor: editPasswordConfirm && editPassword !== editPasswordConfirm ? '#f87171' : '#d1d5db' }}
+                        value={editPasswordConfirm} onChange={e => setEditPasswordConfirm(e.target.value)} placeholder="הכנס שוב" />
+                    </div>
+                  </div>
+                  {editPasswordConfirm && editPassword !== editPasswordConfirm && (
+                    <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>הסיסמאות אינן תואמות</div>
+                  )}
+                  <button type="button" onClick={() => { setShowPasswordChange(false); setEditPassword(''); setEditPasswordConfirm(''); }}
+                    style={{ marginTop: 8, background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ביטול שינוי סיסמה
+                  </button>
+                </>
               )}
             </div>
 
@@ -336,7 +347,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
               <button type="button" onClick={() => setEditUser(null)} style={{ padding: '8px 16px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 ביטול
               </button>
-              <button type="submit" disabled={editSaving || (!!editPasswordConfirm && editPassword !== editPasswordConfirm)}
+              <button type="submit" disabled={editSaving || (showPasswordChange && !!editPasswordConfirm && editPassword !== editPasswordConfirm)}
                 style={{ padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {editSaving ? 'שומר...' : 'שמור שינויים'}
               </button>
