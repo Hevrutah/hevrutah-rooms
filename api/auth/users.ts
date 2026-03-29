@@ -83,10 +83,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(201).json({ id: newUser.id, name, username, email: newUser.email, role, therapistName: newUser.therapistName });
   }
 
-  // PATCH — edit user (admin only)
+  // PATCH — edit user
   if (req.method === 'PATCH') {
-    if (!isAdmin) return res.status(403).json({ error: 'רק מנהל יכול לערוך משתמשים' });
-
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'חסר ID' });
 
@@ -94,12 +92,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const idx = users.findIndex(u => u.id === id);
     if (idx === -1) return res.status(404).json({ error: 'משתמש לא נמצא' });
 
+    // Non-admin can only edit their own record
+    if (!isAdmin && users[idx].username !== caller.username) {
+      return res.status(403).json({ error: 'אין הרשאה לערוך משתמשים אחרים' });
+    }
+
     const { name, password, role, email, therapistName } = req.body || {};
+
+    // Only admin can change password
+    if (password && !isAdmin) {
+      return res.status(403).json({ error: 'רק מנהל יכול לשנות סיסמה' });
+    }
+    // Only admin can change role
+    if (role && !isAdmin) {
+      return res.status(403).json({ error: 'רק מנהל יכול לשנות תפקיד' });
+    }
 
     if (name) {
       users[idx].name = name;
       // For therapists, therapistName must match the event name in Google Calendar
-      if (users[idx].role === 'therapist') users[idx].therapistName = name;
+      if (users[idx].role !== 'admin') users[idx].therapistName = name;
     }
     if (email !== undefined) users[idx].email = email || null;
     if (therapistName !== undefined) users[idx].therapistName = therapistName || null;
@@ -110,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (role === 'admin') users[idx].therapistName = null;
     }
-    if (password) {
+    if (password && isAdmin) {
       users[idx].passwordHash = await bcrypt.hash(password, 12);
     }
 

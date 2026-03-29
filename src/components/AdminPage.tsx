@@ -298,7 +298,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>כתובת מייל</label>
-              <input type="email" style={inputStyle} value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="user@example.com" />
+              <input type="text" autoComplete="off" style={inputStyle} value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="user@example.com" />
             </div>
 
             <div>
