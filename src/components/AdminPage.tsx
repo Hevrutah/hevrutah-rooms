@@ -53,6 +53,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
   const [editPassword, setEditPassword] = useState('');
   const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` };
 
@@ -143,16 +144,22 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`למחוק את המשתמש "${name}"?`)) return;
+    setDeleteConfirm({ id, name });
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
     setError(null);
     try {
-      const res = await fetch(`/api/auth/users?id=${id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/auth/users?id=${deleteConfirm.id}`, { method: 'DELETE', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'שגיאה במחיקה');
-      if (editUser?.id === id) setEditUser(null);
+      if (editUser?.id === deleteConfirm.id) setEditUser(null);
+      setDeleteConfirm(null);
       fetchUsers();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה');
+      setDeleteConfirm(null);
     }
   }
 
@@ -330,8 +337,8 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
                     <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>הסיסמאות אינן תואמות</div>
                   )}
                   <button type="button" onClick={() => { setShowPasswordChange(false); setEditPassword(''); setEditPasswordConfirm(''); }}
-                    style={{ marginTop: 8, background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ביטול שינוי סיסמה
+                    style={{ marginTop: 8, padding: '5px 12px', background: 'white', color: '#64748b', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ✕ ביטול שינוי סיסמה
                   </button>
                 </>
               )}
@@ -353,6 +360,30 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, direction: 'rtl' }}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 340, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#1e293b' }}>מחיקת משתמש</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#64748b' }}>
+              האם אתה בטוח שברצונך למחוק את <strong>{deleteConfirm.name}</strong>?<br />
+              <span style={{ fontSize: 12 }}>לא ניתן לבטל פעולה זו.</span>
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setDeleteConfirm(null)}
+                style={{ padding: '9px 22px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ביטול
+              </button>
+              <button onClick={confirmDelete}
+                style={{ padding: '9px 22px', background: '#dc2626', color: 'white', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                כן, מחק
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
