@@ -57,8 +57,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
     if (!user.isAdmin) return;
     fetch('/api/auth/users', { headers: { Authorization: `Bearer ${jwt}` } })
       .then(r => r.json())
-      .then((users: Array<{ therapistName: string | null }>) => {
-        setTherapistNames(users.filter(u => u.therapistName).map(u => u.therapistName as string));
+      .then((users: Array<{ name: string; therapistName: string | null }>) => {
+        setTherapistNames(users.map(u => u.therapistName || u.name));
       })
       .catch(() => {});
   }, [user.isAdmin, jwt]);
