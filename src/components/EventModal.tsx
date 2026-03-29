@@ -9,11 +9,11 @@ import {
   type RecurringOptions,
 } from '../googleCalendar';
 
-// 30-minute time slots from 07:00 to 20:00
+// 30-minute time slots from 07:00 to 22:00
 const TIME_SLOTS: string[] = [];
-for (let h = 7; h <= 20; h++) {
+for (let h = 7; h <= 22; h++) {
   TIME_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
-  if (h < 20) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+  if (h < 22) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
 }
 
 export type ModalState =
