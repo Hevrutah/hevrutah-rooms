@@ -8,7 +8,13 @@ import {
   deleteCalendarEventAndFollowing,
   type RecurringOptions,
 } from '../googleCalendar';
-import { THERAPIST_NAMES } from '../constants';
+
+// 30-minute time slots from 07:00 to 20:00
+const TIME_SLOTS: string[] = [];
+for (let h = 7; h <= 20; h++) {
+  TIME_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
+  if (h < 20) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+}
 
 export type ModalState =
   | { mode: 'create'; room: RoomCalendar; day: Date; hour: number }
@@ -19,6 +25,7 @@ interface Props {
   state: ModalState;
   rooms: RoomCalendar[];
   accessToken: string;
+  jwt: string;
   user: UserInfo;
   onClose: () => void;
   onSaved: () => void;
@@ -30,7 +37,7 @@ function toDateInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, user, onClose, onSaved }) => {
+export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, user, onClose, onSaved }) => {
   const [name, setName] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [dateVal, setDateVal] = useState('');
@@ -43,6 +50,18 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, user, o
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [therapistNames, setTherapistNames] = useState<string[]>([]);
+
+  // Fetch therapist names from DB (admin only)
+  useEffect(() => {
+    if (!user.isAdmin) return;
+    fetch('/api/auth/users', { headers: { Authorization: `Bearer ${jwt}` } })
+      .then(r => r.json())
+      .then((users: Array<{ therapistName: string | null }>) => {
+        setTherapistNames(users.filter(u => u.therapistName).map(u => u.therapistName as string));
+      })
+      .catch(() => {});
+  }, [user.isAdmin, jwt]);
 
   useEffect(() => {
     if (!state) return;
@@ -270,11 +289,11 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, user, o
                 autoFocus
               >
                 <option value="">— בחר מטפל —</option>
-                {/* Include current event name if not already in the list (e.g., added outside system) */}
-                {name && !THERAPIST_NAMES.includes(name) && (
+                {/* Include current event name if not already in the fetched list */}
+                {name && !therapistNames.includes(name) && (
                   <option key="__current__" value={name}>{name}</option>
                 )}
-                {THERAPIST_NAMES.map(n => (
+                {therapistNames.map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
@@ -302,11 +321,22 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, user, o
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={labelStyle}>שעת התחלה</label>
-              <input type="time" style={inputStyle} value={startTime} onChange={e => setStartTime(e.target.value)} step={900} />
+              <select style={inputStyle} value={startTime} onChange={e => setStartTime(e.target.value)}>
+                {/* Show current value if it's not a standard slot (e.g., imported event) */}
+                {startTime && !TIME_SLOTS.includes(startTime) && (
+                  <option value={startTime}>{startTime}</option>
+                )}
+                {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div>
               <label style={labelStyle}>שעת סיום</label>
-              <input type="time" style={inputStyle} value={endTime} onChange={e => setEndTime(e.target.value)} step={900} />
+              <select style={inputStyle} value={endTime} onChange={e => setEndTime(e.target.value)}>
+                {endTime && !TIME_SLOTS.includes(endTime) && (
+                  <option value={endTime}>{endTime}</option>
+                )}
+                {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
           </div>
 

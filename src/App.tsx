@@ -399,6 +399,7 @@ function Dashboard({
         state={modal}
         rooms={rooms}
         accessToken={calendarToken}
+        jwt={jwt}
         user={user}
         onClose={() => setModal(null)}
         onSaved={refetch}
