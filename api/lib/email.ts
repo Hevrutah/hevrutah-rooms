@@ -27,7 +27,7 @@ export async function sendWelcomeEmail(to: string, name: string, username: strin
           <p style="margin: 0;"><strong>סיסמה:</strong> ${password}</p>
         </div>
         <p>כנס לאפליקציה בכתובת: <a href="https://hevrutah-rooms.vercel.app">hevrutah-rooms.vercel.app</a></p>
-        <p style="color: #64748b; font-size: 13px;">מומלץ לשנות את הסיסמה לאחר הכניסה הראשונה.</p>
+        <p style="color: #64748b; font-size: 13px;">לשינוי סיסמה פנה למנהל המערכת.</p>
       </div>
     `,
   });
