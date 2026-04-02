@@ -3,6 +3,7 @@ import type { CalendarEvent, RoomCalendar, UserInfo } from '../types';
 import {
   createCalendarEvent,
   updateCalendarEvent,
+  updateCalendarEventSeries,
   deleteCalendarEvent,
   deleteCalendarEventSeries,
   deleteCalendarEventAndFollowing,
@@ -50,6 +51,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [updateDialog, setUpdateDialog] = useState(false);
+  const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
 
   // Fetch therapist names from DB (admin only)
@@ -69,6 +72,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
     setSaving(false);
     setDeleting(false);
     setDeleteDialog(false);
+    setUpdateDialog(false);
+    setPendingSave(null);
 
     const pad = (n: number) => String(n).padStart(2, '0');
     if (state.mode === 'edit') {
@@ -123,21 +128,37 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
 
   async function handleSave() {
     if (!name.trim()) { setError('יש להזין שם מטפל'); return; }
-    if (!selectedRoomId) { setError('יש לבחור חדר'); return; }
+    if (!selectedRoomId && !isEdit) { setError('יש לבחור חדר'); return; }
     const startISO = new Date(`${dateVal}T${startTime}`).toISOString();
     const endISO   = new Date(`${dateVal}T${endTime}`).toISOString();
     if (new Date(endISO) <= new Date(startISO)) { setError('שעת סיום חייבת להיות אחרי שעת התחלה'); return; }
 
+    // If editing a recurring event — ask user which occurrences to update
+    if (isEdit && isRecurringEvent) {
+      setPendingSave({ name: name.trim(), startISO, endISO });
+      setUpdateDialog(true);
+      return;
+    }
+
+    await doSave(name.trim(), startISO, endISO, 'single');
+  }
+
+  async function doSave(saveName: string, startISO: string, endISO: string, mode: 'single' | 'series') {
     setSaving(true);
     setError(null);
+    setUpdateDialog(false);
     try {
       if (isEdit) {
-        await updateCalendarEvent(accessToken, roomId, editEventId, name.trim(), startISO, endISO);
+        if (mode === 'series' && masterEventId) {
+          await updateCalendarEventSeries(accessToken, roomId, masterEventId, saveName, startTime, endTime);
+        } else {
+          await updateCalendarEvent(accessToken, roomId, editEventId, saveName, startISO, endISO);
+        }
       } else {
         const recurringOptions: RecurringOptions = recurring
           ? { freq: recurringFreq, until: recurringUntil || undefined }
           : null;
-        await createCalendarEvent(accessToken, roomId, name.trim(), startISO, endISO, recurringOptions);
+        await createCalendarEvent(accessToken, roomId, saveName, startISO, endISO, recurringOptions);
       }
       onSaved();
       onClose();
@@ -428,8 +449,39 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
           </div>
         )}
 
+        {/* Update dialog for recurring events */}
+        {updateDialog && pendingSave && (
+          <div style={{ marginTop: 18, padding: '14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1e40af', marginBottom: 10 }}>
+              זוהי פגישה חוזרת. מה ברצונך לעדכן?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button
+                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'single')}
+                disabled={saving}
+                style={{ padding: '8px 12px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right' }}
+              >
+                עדכן רק פגישה זו
+              </button>
+              <button
+                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'series')}
+                disabled={saving}
+                style={{ padding: '8px 12px', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right' }}
+              >
+                עדכן את כל הסדרה
+              </button>
+              <button
+                onClick={() => { setUpdateDialog(false); setPendingSave(null); }}
+                style={{ padding: '8px 12px', background: 'none', color: '#94a3b8', border: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right' }}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
-        {!deleteDialog && (
+        {!deleteDialog && !updateDialog && (
           <div style={{ display: 'flex', gap: 8, marginTop: 22, justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <button

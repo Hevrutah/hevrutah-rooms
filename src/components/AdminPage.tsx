@@ -8,6 +8,7 @@ interface AppUser {
   email: string | null;
   role: 'admin' | 'hevrutah' | 'external';
   therapistName: string | null;
+  airtableAccess: boolean;
 }
 
 interface Props {
@@ -49,7 +50,7 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'hevrutah' | 'external'>('hevrutah');
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
+const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [editPassword, setEditPassword] = useState('');
   const [editPasswordConfirm, setEditPasswordConfirm] = useState('');
   const [editSaving, setEditSaving] = useState(false);

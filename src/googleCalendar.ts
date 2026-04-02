@@ -133,7 +133,8 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(
   accessToken: string,
   calendarId: string,
-  eventId: string
+  eventId: string,
+  ignoreErrors = false
 ): Promise<void> {
   const res = await fetch(
     `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
@@ -142,7 +143,9 @@ export async function deleteCalendarEvent(
       headers: { Authorization: `Bearer ${accessToken}` },
     }
   );
-  if (!res.ok && res.status !== 204) {
+  // 204 = success, 410 = already gone — both are fine
+  const ok = res.ok || res.status === 204 || res.status === 410;
+  if (!ok && !ignoreErrors) {
     throw new Error(`שגיאה במחיקת אירוע: ${res.status}`);
   }
 }
@@ -198,8 +201,49 @@ export async function deleteCalendarEventAndFollowing(
     throw new Error((err as any)?.error?.message || `שגיאה בעדכון סדרה: ${patchRes.status}`);
   }
 
-  // Delete current instance (may exist as an exception)
-  await deleteCalendarEvent(accessToken, calendarId, eventId);
+  // Delete current instance if it exists as an exception — ignore errors
+  // (RRULE truncation above may have already removed it)
+  await deleteCalendarEvent(accessToken, calendarId, eventId, true);
+}
+
+/** Update all occurrences of a recurring event series (changes summary + time-of-day for every instance) */
+export async function updateCalendarEventSeries(
+  accessToken: string,
+  calendarId: string,
+  recurringEventId: string,
+  summary: string,
+  newStartTime: string, // HH:MM
+  newEndTime: string,   // HH:MM
+): Promise<void> {
+  // Fetch master event to get its original date
+  const masterRes = await fetch(
+    `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(recurringEventId)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!masterRes.ok) throw new Error(`שגיאה בטעינת האירוע: ${masterRes.status}`);
+  const master = await masterRes.json();
+
+  // Keep master's original date; replace only the time
+  const masterDate: string = (master.start.dateTime || master.start.date).substring(0, 10);
+  const newStartISO = new Date(`${masterDate}T${newStartTime}`).toISOString();
+  const newEndISO   = new Date(`${masterDate}T${newEndTime}`).toISOString();
+
+  const res = await fetch(
+    `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(recurringEventId)}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary,
+        start: { dateTime: newStartISO, timeZone: 'Asia/Jerusalem' },
+        end:   { dateTime: newEndISO,   timeZone: 'Asia/Jerusalem' },
+      }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message || `שגיאה בעדכון הסדרה: ${res.status}`);
+  }
 }
 
 export async function fetchAllRoomEvents(
