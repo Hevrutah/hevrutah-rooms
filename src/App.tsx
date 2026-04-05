@@ -7,6 +7,7 @@ import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
 import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
+import { ReferralsPage } from './components/referrals/ReferralsPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
@@ -221,6 +222,7 @@ function Dashboard({
 }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showReferrals, setShowReferrals] = useState(false);
 
   // ── Infinite scroll days state ────────────────────────────────
   const [days, setDays] = useState<Date[]>(() => {
@@ -320,6 +322,10 @@ function Dashboard({
     return <AdminPage jwt={jwt} user={user} onClose={() => setShowAdmin(false)} />;
   }
 
+  if (showReferrals) {
+    return <ReferralsPage jwt={jwt} user={user} onClose={() => setShowReferrals(false)} />;
+  }
+
   return (
     <div style={{
       width: '100vw', height: '100vh',
@@ -345,9 +351,18 @@ function Dashboard({
               מנהל
             </span>
           )}
+          <button onClick={() => setShowReferrals(true)} style={{ ...navBtnStyle, background: 'rgba(34,197,94,0.25)', borderColor: 'rgba(34,197,94,0.5)' }}>
+            📋 הפניות
+          </button>
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
+          <button
+            onClick={() => window.open('https://hevrutah-portal.vercel.app', '_blank', 'noopener,noreferrer')}
+            style={{ ...navBtnStyle, background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.4)' }}
+          >
+            ← פורטל
+          </button>
           <button onClick={onLogout} style={navBtnStyle}>יציאה</button>
         </div>
       </div>

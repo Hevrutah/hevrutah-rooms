@@ -27,3 +27,4 @@ data/google-token.json
 *.njsproj
 *.sln
 *.sw?
+.claude/
