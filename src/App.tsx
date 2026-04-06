@@ -341,7 +341,13 @@ function Dashboard({
         color: 'white', padding: '10px 20px',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <img src={logo} alt="חברותא" style={{ height: 36, objectFit: 'contain', borderRadius: 4 }} />
+        <button
+          onClick={() => window.open('https://hevrutah-portal.vercel.app', '_blank', 'noopener,noreferrer')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 8 }}
+          title="חזרה לפורטל"
+        >
+          <img src={logo} alt="חברותא" style={{ height: 36, objectFit: 'contain', borderRadius: 4 }} />
+        </button>
         <span style={{ fontWeight: 800, fontSize: 18 }}>ניהול חדרים</span>
         {loading && <span style={{ fontSize: 12, opacity: 0.8 }}>⟳ מעדכן...</span>}
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -351,9 +357,6 @@ function Dashboard({
               מנהל
             </span>
           )}
-          <button onClick={() => setShowReferrals(true)} style={{ ...navBtnStyle, background: 'rgba(34,197,94,0.25)', borderColor: 'rgba(34,197,94,0.5)' }}>
-            📋 הפניות
-          </button>
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
@@ -363,7 +366,6 @@ function Dashboard({
           >
             ← פורטל
           </button>
-          <button onClick={onLogout} style={navBtnStyle}>יציאה</button>
         </div>
       </div>
 
