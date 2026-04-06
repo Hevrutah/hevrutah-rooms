@@ -429,7 +429,8 @@ function AppInner() {
       try {
         // Decode JWT payload (server verifies on each API call)
         const base64 = portalToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-        const payload = JSON.parse(atob(base64)) as {
+        const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        const payload = JSON.parse(json) as {
           username: string; name: string; role: string; therapistName: string | null;
         };
         const user: UserInfo = {
