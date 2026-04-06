@@ -175,36 +175,6 @@ function AdminGoogleSetup({
   );
 }
 
-// ── Therapist waiting screen ──────────────────────────────────────
-
-function TherapistWaitingScreen({ onLogout }: { onLogout: () => void }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
-      direction: 'rtl', fontFamily: "'Segoe UI', 'Arial', sans-serif",
-    }}>
-      <div style={{
-        background: 'white', borderRadius: 16, padding: 44,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        maxWidth: 360, width: '90%', textAlign: 'center',
-      }}>
-        <img src={logo} alt="חברותא" style={{ width: 140, marginBottom: 16, objectFit: 'contain' }} />
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1e293b', margin: '0 0 12px' }}>
-          ממתין להגדרת מנהל
-        </h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>
-          המנהל טרם חיבר את Google Calendar. אנא פנה למנהל המערכת.
-        </p>
-        <button onClick={onLogout} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-          ← התנתק
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Dashboard ───────────────────────────────────────────────
 
 function Dashboard({
@@ -212,13 +182,11 @@ function Dashboard({
   user,
   calendarToken,
   onGoogleExpired,
-  onLogout,
 }: {
   jwt: string;
   user: UserInfo;
   calendarToken: string;
   onGoogleExpired: () => void;
-  onLogout: () => void;
 }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -528,7 +496,6 @@ function AppInner() {
           const token = await fetchSharedToken(view.jwt);
           if (token) setView({ status: 'ok', jwt: view.jwt, user: view.user, calendarToken: token });
         }}
-        onLogout={handleLogout}
       />
     );
   }
@@ -545,7 +512,6 @@ function AppInner() {
         else if (view.user.isAdmin) setView({ status: 'need-setup', jwt: view.jwt, user: view.user });
         else setView({ status: 'waiting', jwt: view.jwt, user: view.user });
       }}
-      onLogout={handleLogout}
     />
   );
 }
