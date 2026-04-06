@@ -342,7 +342,7 @@ function Dashboard({
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <button
-          onClick={() => window.open('https://hevrutah-portal.vercel.app', '_blank', 'noopener,noreferrer')}
+          onClick={() => { window.location.href = 'https://hevrutah-portal.vercel.app'; }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 8 }}
           title="חזרה לפורטל"
         >
@@ -360,12 +360,6 @@ function Dashboard({
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
-          <button
-            onClick={() => window.open('https://hevrutah-portal.vercel.app', '_blank', 'noopener,noreferrer')}
-            style={{ ...navBtnStyle, background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.4)' }}
-          >
-            ← פורטל
-          </button>
         </div>
       </div>
 
