@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { addDays } from 'date-fns';
 import logo from './assets/logo.jpg';
-import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
 import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
@@ -11,7 +11,6 @@ import { ReferralsPage } from './components/referrals/ReferralsPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
-import { GOOGLE_SCOPES } from './constants';
 
 const LOAD_MORE = 14;
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string || '504708739043-4c9j52bcvtofeul3u2vims5pp01ht1lp.apps.googleusercontent.com';
@@ -53,10 +52,6 @@ function saveGoogleToken(token: string) {
   }));
 }
 
-function clearAllSessions() {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(GOOGLE_TOKEN_KEY);
-}
 
 // ── Fetch shared Google token from server ─────────────────────────
 
@@ -74,106 +69,6 @@ async function fetchSharedToken(jwt: string): Promise<string | null> {
   } catch { return null; }
 }
 
-// ── Admin Google Setup Screen (one-time) ─────────────────────────
-
-function AdminGoogleSetup({
-  jwt,
-  onConnected,
-  onLogout,
-}: {
-  jwt: string;
-  onConnected: (token: string) => void;
-  onLogout: () => void;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [manualToken, setManualToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const connectGoogle = useGoogleLogin({
-    flow: 'auth-code',
-    scope: GOOGLE_SCOPES,
-    onSuccess: async (res) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await fetch('/api/calendar/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-          body: JSON.stringify({ code: res.code, redirectUri: 'postmessage' }),
-        });
-        const data = await r.json();
-        if (data.message === 'MANUAL_SAVE_REQUIRED') {
-          setManualToken(data.refreshToken);
-          saveGoogleToken(data.accessToken);
-          onConnected(data.accessToken);
-        } else if (r.ok) {
-          const token = await fetchSharedToken(jwt);
-          if (token) onConnected(token);
-        } else if (data.error === 'NO_REFRESH_TOKEN') {
-          setError('לא התקבל refresh token — אנא בטל גישה לאפליקציה ב-Google ונסה שנית.');
-        } else {
-          setError(data.error || 'שגיאה בחיבור');
-        }
-      } catch { setError('שגיאת רשת'); }
-      setLoading(false);
-    },
-    onError: () => setError('ההתחברות ל-Google נכשלה. נסה שנית.'),
-  });
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
-      direction: 'rtl', fontFamily: "'Segoe UI', 'Arial', sans-serif",
-    }}>
-      <div style={{
-        background: 'white', borderRadius: 16, padding: 44,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        maxWidth: 420, width: '90%', textAlign: 'center',
-      }}>
-        <img src={logo} alt="חברותא" style={{ width: 140, marginBottom: 16, objectFit: 'contain' }} />
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', margin: '0 0 8px' }}>
-          הגדרת חיבור Google Calendar
-        </h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>
-          חיבור חד-פעמי. לאחר מכן כל המטפלים יתחברו אוטומטית ללא צורך ב-Google.
-        </p>
-
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '8px 12px', borderRadius: 7, fontSize: 13, marginBottom: 16 }}>
-            {error}
-          </div>
-        )}
-
-        {manualToken && (
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: 12, borderRadius: 8, fontSize: 12, textAlign: 'right', marginBottom: 16 }}>
-            <strong>הוסף את ה-Refresh Token הבא ל-Vercel כ-GOOGLE_REFRESH_TOKEN:</strong>
-            <pre style={{ marginTop: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap', fontSize: 10 }}>{manualToken}</pre>
-          </div>
-        )}
-
-        <button
-          onClick={() => connectGoogle()}
-          disabled={loading}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            width: '100%', padding: '12px 24px',
-            background: loading ? '#93c5fd' : '#4285f4', color: 'white',
-            border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600,
-            cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit', marginBottom: 10,
-          }}
-        >
-          {loading ? 'מתחבר...' : 'חבר Google Calendar (אדמין)'}
-        </button>
-
-        <button onClick={onLogout} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-          ← התנתק
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ── Main Dashboard ───────────────────────────────────────────────
 
@@ -462,10 +357,6 @@ function AppInner() {
     await resolveGoogleToken(jwt, user);
   }
 
-  function handleLogout() {
-    clearAllSessions();
-    setView({ status: 'login' });
-  }
 
   const loadingScreen = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontSize: 18, color: '#64748b' }}>
@@ -477,11 +368,13 @@ function AppInner() {
   if (view.status === 'login') return <LoginScreen onLogin={handleLogin} />;
 
   if (view.status === 'need-setup') {
+    // Skip Google Calendar setup — show calendar without events until admin connects Google
     return (
-      <AdminGoogleSetup
+      <Dashboard
         jwt={view.jwt}
-        onConnected={(token) => setView({ status: 'ok', jwt: view.jwt, user: view.user, calendarToken: token })}
-        onLogout={handleLogout}
+        user={view.user}
+        calendarToken=""
+        onGoogleExpired={() => {}}
       />
     );
   }
