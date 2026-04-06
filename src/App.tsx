@@ -458,9 +458,37 @@ function AppInner() {
   }
 
   useEffect(() => {
+    // ── Check for portal SSO token in URL (?token=JWT) ────────────
+    const params = new URLSearchParams(window.location.search);
+    const portalToken = params.get('token');
+    if (portalToken) {
+      try {
+        // Decode JWT payload (server verifies on each API call)
+        const base64 = portalToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64)) as {
+          username: string; name: string; role: string; therapistName: string | null;
+        };
+        const user: UserInfo = {
+          username: payload.username,
+          name: payload.name,
+          role: payload.role === 'admin' ? 'admin' : 'hevrutah',
+          isAdmin: payload.role === 'admin',
+          therapistName: payload.therapistName ?? null,
+        };
+        saveSession(portalToken, user);
+        // Clean URL without page reload
+        window.history.replaceState({}, '', window.location.pathname);
+        void resolveGoogleToken(portalToken, user);
+        return;
+      } catch {
+        // Invalid token — fall through to normal login
+      }
+    }
+
+    // ── Normal session restore ─────────────────────────────────────
     const session = loadSession();
     if (!session) { setView({ status: 'login' }); return; }
-    resolveGoogleToken(session.jwt, session.user);
+    void resolveGoogleToken(session.jwt, session.user);
   }, []);
 
   async function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserInfo['role'] = 'hevrutah') {
@@ -494,7 +522,19 @@ function AppInner() {
   }
 
   if (view.status === 'waiting') {
-    return <TherapistWaitingScreen onLogout={handleLogout} />;
+    // Non-admin without Google token — show dashboard with empty calendar
+    return (
+      <Dashboard
+        jwt={view.jwt}
+        user={view.user}
+        calendarToken=""
+        onGoogleExpired={async () => {
+          const token = await fetchSharedToken(view.jwt);
+          if (token) setView({ status: 'ok', jwt: view.jwt, user: view.user, calendarToken: token });
+        }}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   return (
