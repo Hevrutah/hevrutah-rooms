@@ -60,11 +60,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
-    const { timeMin, timeMax } = req.query as { timeMin?: string; timeMax?: string };
-    let events = await getRoomEvents();
-    if (timeMin) events = events.filter(e => e.end > timeMin);
-    if (timeMax) events = events.filter(e => e.start < timeMax);
-    return res.status(200).json(events);
+    try {
+      const { timeMin, timeMax } = req.query as { timeMin?: string; timeMax?: string };
+      let events = await getRoomEvents();
+      if (timeMin) events = events.filter(e => e.end > timeMin);
+      if (timeMax) events = events.filter(e => e.start < timeMax);
+      return res.status(200).json(events);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return res.status(500).json({ error: msg });
+    }
   }
 
   if (req.method === 'POST') {
