@@ -45,7 +45,11 @@ export async function fetchRoomEvents(jwt: string, start: Date, end: Date): Prom
     if (!roomMap.has(event.roomName)) {
       roomMap.set(event.roomName, { id: event.roomName, name: event.roomName, events: [] });
     }
-    roomMap.get(event.roomName)!.events.push(event);
+    roomMap.get(event.roomName)!.events.push({
+      ...event,
+      recurringEventId: event.recurringEventId ?? undefined,
+      creatorEmail: event.creatorEmail ?? undefined,
+    });
   }
   return Array.from(roomMap.values());
 }
