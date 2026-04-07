@@ -327,26 +327,32 @@ function AppInner() {
     const params = new URLSearchParams(window.location.search);
     const portalToken = params.get('token');
     if (portalToken) {
-      try {
-        const base64 = portalToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-        const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-        const payload = JSON.parse(json) as {
-          username: string; name: string; role: string; therapistName: string | null;
-        };
-        const user: UserInfo = {
-          username: payload.username,
-          name: payload.name,
-          role: payload.role === 'admin' ? 'admin' : 'hevrutah',
-          isAdmin: payload.role === 'admin',
-          therapistName: payload.therapistName ?? null,
-        };
-        saveSession(portalToken, user);
-        window.history.replaceState({}, '', window.location.pathname);
-        setView({ status: 'ready', jwt: portalToken, user });
-        return;
-      } catch {
-        // invalid token — fall through
-      }
+      window.history.replaceState({}, '', window.location.pathname);
+      // Exchange portal JWT for a rooms JWT (handles different JWT_SECRET between apps)
+      fetch('/api/auth/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: portalToken }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.token) { setView({ status: 'no-session' }); return; }
+          // Decode user info from the new rooms JWT
+          const base64 = data.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          const json = decodeURIComponent(atob(base64).split('').map((c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+          const payload = JSON.parse(json) as { username: string; name: string; role: string; therapistName: string | null };
+          const user: UserInfo = {
+            username: payload.username,
+            name: payload.name,
+            role: payload.role === 'admin' ? 'admin' : 'hevrutah',
+            isAdmin: payload.role === 'admin',
+            therapistName: payload.therapistName ?? null,
+          };
+          saveSession(data.token, user);
+          setView({ status: 'ready', jwt: data.token, user });
+        })
+        .catch(() => setView({ status: 'no-session' }));
+      return;
     }
 
     // ── Restore saved session ─────────────────────────────────────

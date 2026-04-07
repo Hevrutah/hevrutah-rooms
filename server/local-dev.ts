@@ -10,6 +10,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import loginHandler from '../api/auth/login.js';
 import usersHandler from '../api/auth/users.js';
+import exchangeHandler from '../api/auth/exchange.js';
 import calendarTokenHandler from '../api/calendar/token.js';
 import calendarConnectHandler from '../api/calendar/connect.js';
 import airtableReferralsHandler from '../api/airtable/referrals.js';
@@ -31,6 +32,7 @@ function wrap(handler: Handler) {
 }
 
 app.all('/api/auth/login', wrap(loginHandler));
+app.all('/api/auth/exchange', wrap(exchangeHandler));
 app.all('/api/auth/users', wrap(usersHandler));
 app.all('/api/calendar/token', wrap(calendarTokenHandler));
 app.all('/api/calendar/connect', wrap(calendarConnectHandler));
