@@ -9,7 +9,10 @@ import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
+import { fetchAllRoomEvents } from './googleCalendar';
+import { importFromGoogle } from './roomsApi';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
+import { GOOGLE_SCOPES } from './constants';
 
 const LOAD_MORE = 14;
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string || '504708739043-4c9j52bcvtofeul3u2vims5pp01ht1lp.apps.googleusercontent.com';
@@ -17,7 +20,6 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string || '5047087390
 // ── Session storage helpers ──────────────────────────────────────
 
 const SESSION_KEY = 'hevrutah_session';
-const GOOGLE_TOKEN_KEY = 'hevrutah_google_token';
 
 function loadSession(): { jwt: string; user: UserInfo } | null {
   try {
@@ -35,68 +37,36 @@ function saveSession(jwt: string, user: UserInfo) {
   }));
 }
 
-function loadGoogleToken(): string | null {
-  try {
-    const raw = localStorage.getItem(GOOGLE_TOKEN_KEY);
-    if (!raw) return null;
-    const { token, expires } = JSON.parse(raw);
-    if (Date.now() > expires) { localStorage.removeItem(GOOGLE_TOKEN_KEY); return null; }
-    return token;
-  } catch { return null; }
-}
 
-function saveGoogleToken(token: string) {
-  localStorage.setItem(GOOGLE_TOKEN_KEY, JSON.stringify({
-    token, expires: Date.now() + 55 * 60 * 1000, // 55 min (token valid for 1h)
-  }));
-}
+// ── Import button: admin-only, one-time Google Calendar import ───
 
-
-// ── Fetch shared Google token from server ─────────────────────────
-
-async function fetchSharedToken(jwt: string): Promise<string | null> {
-  try {
-    const res = await fetch('/api/calendar/token', {
-      headers: { Authorization: `Bearer ${jwt}` },
-    });
-    if (!res.ok) return null;
-    const { accessToken, expiresIn } = await res.json();
-    saveGoogleToken(accessToken);
-    // Schedule silent refresh slightly before expiry
-    setTimeout(() => localStorage.removeItem(GOOGLE_TOKEN_KEY), (expiresIn - 60) * 1000);
-    return accessToken;
-  } catch { return null; }
-}
-
-
-// ── Main Dashboard ───────────────────────────────────────────────
-
-function ConnectCalendarButton({ jwt, onConnected }: { jwt: string; onConnected: (token: string) => void }) {
+function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const connectGoogle = useGoogleLogin({
-    flow: 'auth-code',
-    scope: 'https://www.googleapis.com/auth/calendar',
-    onSuccess: async (res) => {
-      setLoading(true); setError(null);
+  const doImport = useGoogleLogin({
+    scope: GOOGLE_SCOPES,
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      setError(null);
       try {
-        const r = await fetch('/api/calendar/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-          body: JSON.stringify({ code: res.code, redirectUri: 'postmessage' }),
-        });
-        const data = await r.json();
-        if (data.accessToken || data.message === 'MANUAL_SAVE_REQUIRED') {
-          saveGoogleToken(data.accessToken);
-          onConnected(data.accessToken);
-        } else {
-          const token = await fetchSharedToken(jwt);
-          if (token) onConnected(token);
-          else setError('שגיאה בחיבור');
-        }
-      } catch { setError('שגיאת רשת'); }
-      setLoading(false);
+        const start = new Date();
+        start.setFullYear(start.getFullYear() - 1);
+        const end = new Date();
+        end.setFullYear(end.getFullYear() + 2);
+
+        const roomData = await fetchAllRoomEvents(tokenResponse.access_token, start, end);
+        const events = roomData.flatMap(r => r.events);
+        await importFromGoogle(jwt, events);
+        setDone(true);
+        setTimeout(() => setDone(false), 5000);
+        onImported();
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'שגיאה בייבוא');
+      } finally {
+        setLoading(false);
+      }
     },
     onError: () => setError('ההתחברות נכשלה'),
   });
@@ -104,33 +74,27 @@ function ConnectCalendarButton({ jwt, onConnected }: { jwt: string; onConnected:
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {error && <span style={{ fontSize: 11, color: '#fca5a5' }}>{error}</span>}
+      {done && <span style={{ fontSize: 11, color: '#86efac' }}>✓ יובא בהצלחה</span>}
       <button
-        onClick={() => connectGoogle()}
+        onClick={() => doImport()}
         disabled={loading}
-        style={{ ...navBtnStyle, background: 'rgba(66,133,244,0.3)', borderColor: 'rgba(66,133,244,0.6)' }}
+        style={{ ...navBtnStyle, background: 'rgba(16,185,129,0.3)', borderColor: 'rgba(16,185,129,0.6)' }}
+        title="ייבוא חד-פעמי מ-Google Calendar"
       >
-        {loading ? '🔄 מחבר...' : '🔗 חבר Google Calendar'}
+        {loading ? '⟳ מייבא...' : '📥 ייבא מ-Google Calendar'}
       </button>
     </div>
   );
 }
 
-function Dashboard({
-  jwt,
-  user,
-  calendarToken: initialToken,
-  onGoogleExpired,
-}: {
-  jwt: string;
-  user: UserInfo;
-  calendarToken: string;
-  onGoogleExpired: () => void;
-}) {
+
+// ── Main Dashboard ───────────────────────────────────────────────
+
+function Dashboard({ jwt, user }: { jwt: string; user: UserInfo }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [calendarToken, setCalendarToken] = useState(initialToken);
+  const [importKey, setImportKey] = useState(0);
 
-  // ── Infinite scroll days state ────────────────────────────────
   const [days, setDays] = useState<Date[]>(() => {
     const today = new Date();
     return Array.from({ length: 28 }, (_, i) => addDays(today, i - 7));
@@ -139,25 +103,18 @@ function Dashboard({
   const rangeStart = useMemo(() => days[0],               [days]);
   const rangeEnd   = useMemo(() => days[days.length - 1], [days]);
 
-  const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(calendarToken, rangeStart, rangeEnd);
+  const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd);
 
-  
-  // Detect expired Google token
   useEffect(() => {
-    if (error && (error.includes('401') || error.includes('Invalid Credentials'))) {
-      localStorage.removeItem(GOOGLE_TOKEN_KEY);
-      onGoogleExpired();
-    }
-  }, [error, onGoogleExpired]);
+    if (importKey > 0) refetch();
+  }, [importKey, refetch]);
 
-  // ── Scroll refs ───────────────────────────────────────────────
-  const scrollRef    = useRef<HTMLDivElement>(null);
-  const topSentinel  = useRef<HTMLDivElement>(null);
-  const botSentinel  = useRef<HTMLDivElement>(null);
-  const loadingRef   = useRef(false);
-  const prependH     = useRef(0); // scrollHeight before prepend
+  const scrollRef   = useRef<HTMLDivElement>(null);
+  const topSentinel = useRef<HTMLDivElement>(null);
+  const botSentinel = useRef<HTMLDivElement>(null);
+  const loadingRef  = useRef(false);
+  const prependH    = useRef(0);
 
-  // Adjust scroll after prepend so view doesn't jump
   useLayoutEffect(() => {
     if (prependH.current > 0 && scrollRef.current) {
       scrollRef.current.scrollTop += scrollRef.current.scrollHeight - prependH.current;
@@ -165,7 +122,6 @@ function Dashboard({
     }
   }, [days]);
 
-  // Bottom sentinel → append future days
   useEffect(() => {
     const el = botSentinel.current;
     if (!el) return;
@@ -174,8 +130,7 @@ function Dashboard({
         loadingRef.current = true;
         setDays(prev => {
           const last = prev[prev.length - 1];
-          const extra = Array.from({ length: LOAD_MORE }, (_, i) => addDays(last, i + 1));
-          return [...prev, ...extra];
+          return [...prev, ...Array.from({ length: LOAD_MORE }, (_, i) => addDays(last, i + 1))];
         });
         setTimeout(() => { loadingRef.current = false; }, 500);
       }
@@ -184,7 +139,6 @@ function Dashboard({
     return () => obs.disconnect();
   }, []);
 
-  // Top sentinel → prepend past days
   useEffect(() => {
     const el = topSentinel.current;
     if (!el) return;
@@ -194,8 +148,7 @@ function Dashboard({
         prependH.current = scrollRef.current?.scrollHeight ?? 0;
         setDays(prev => {
           const first = prev[0];
-          const extra = Array.from({ length: LOAD_MORE }, (_, i) => addDays(first, i - LOAD_MORE));
-          return [...extra, ...prev];
+          return [...Array.from({ length: LOAD_MORE }, (_, i) => addDays(first, i - LOAD_MORE)), ...prev];
         });
         setTimeout(() => { loadingRef.current = false; }, 500);
       }
@@ -204,7 +157,6 @@ function Dashboard({
     return () => obs.disconnect();
   }, []);
 
-  // Scroll to today on mount
   useEffect(() => {
     setTimeout(() => {
       const el = document.querySelector('[data-today-section="true"]');
@@ -227,7 +179,6 @@ function Dashboard({
   if (showAdmin && user.isAdmin) {
     return <AdminPage jwt={jwt} user={user} onClose={() => setShowAdmin(false)} />;
   }
-
 
   return (
     <div style={{
@@ -263,14 +214,14 @@ function Dashboard({
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
-          {user.isAdmin && !calendarToken && (
-            <ConnectCalendarButton jwt={jwt} onConnected={(token) => setCalendarToken(token)} />
+          {user.isAdmin && (
+            <ImportCalendarButton jwt={jwt} onImported={() => setImportKey(k => k + 1)} />
           )}
         </div>
       </div>
 
       {/* Error bar */}
-      {error && !error.includes('401') && !error.includes('Invalid Credentials') && (
+      {error && (
         <div style={{
           flexShrink: 0,
           background: '#fef2f2', border: '1px solid #fecaca',
@@ -280,8 +231,7 @@ function Dashboard({
         </div>
       )}
 
-
-      {/* Toolbar + Legend — one row */}
+      {/* Toolbar + Legend */}
       <div style={{ flexShrink: 0, padding: '4px 16px', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 16, direction: 'rtl', flexWrap: 'wrap' }}>
         <WeekNav onToday={goToday} loading={loading} lastRefresh={lastRefresh} />
         <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#64748b' }}>
@@ -300,7 +250,7 @@ function Dashboard({
         </div>
       </div>
 
-      {/* SCROLLABLE BODY — the only element that scrolls */}
+      {/* Scrollable body */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden' }}>
         <div ref={topSentinel} style={{ height: 1 }} />
         <WeekGrid
@@ -315,7 +265,6 @@ function Dashboard({
       <EventModal
         state={modal}
         rooms={rooms}
-        accessToken={calendarToken}
         jwt={jwt}
         user={user}
         onClose={() => setModal(null)}
@@ -337,27 +286,10 @@ const navBtnStyle: React.CSSProperties = {
 type AppView =
   | { status: 'loading' }
   | { status: 'login' }
-  | { status: 'need-setup'; jwt: string; user: UserInfo }      // admin: no Google token configured
-  | { status: 'waiting'; jwt: string; user: UserInfo }         // therapist: admin hasn't set up yet
-  | { status: 'ok'; jwt: string; user: UserInfo; calendarToken: string };
+  | { status: 'ready'; jwt: string; user: UserInfo };
 
 function AppInner() {
   const [view, setView] = useState<AppView>({ status: 'loading' });
-
-  async function resolveGoogleToken(jwt: string, user: UserInfo) {
-    // 1. Try cached token
-    const cached = loadGoogleToken();
-    if (cached) { setView({ status: 'ok', jwt, user, calendarToken: cached }); return; }
-    // 2. Try server shared token
-    const token = await fetchSharedToken(jwt);
-    if (token) { setView({ status: 'ok', jwt, user, calendarToken: token }); return; }
-    // 3. No token available
-    if (user.isAdmin) {
-      setView({ status: 'need-setup', jwt, user });
-    } else {
-      setView({ status: 'waiting', jwt, user });
-    }
-  }
 
   useEffect(() => {
     // ── Check for portal SSO token in URL (?token=JWT) ────────────
@@ -365,7 +297,6 @@ function AppInner() {
     const portalToken = params.get('token');
     if (portalToken) {
       try {
-        // Decode JWT payload (server verifies on each API call)
         const base64 = portalToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
         const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
         const payload = JSON.parse(json) as {
@@ -379,78 +310,37 @@ function AppInner() {
           therapistName: payload.therapistName ?? null,
         };
         saveSession(portalToken, user);
-        // Clean URL without page reload
         window.history.replaceState({}, '', window.location.pathname);
-        void resolveGoogleToken(portalToken, user);
+        setView({ status: 'ready', jwt: portalToken, user });
         return;
       } catch {
-        // Invalid token — fall through to normal login
+        // fall through to normal login
       }
     }
 
     // ── Normal session restore ─────────────────────────────────────
     const session = loadSession();
     if (!session) { setView({ status: 'login' }); return; }
-    void resolveGoogleToken(session.jwt, session.user);
+    setView({ status: 'ready', jwt: session.jwt, user: session.user });
   }, []);
 
-  async function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserInfo['role'] = 'hevrutah') {
+  function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserInfo['role'] = 'hevrutah') {
     const user: UserInfo = { username, name, role, isAdmin, therapistName };
     saveSession(jwt, user);
-    await resolveGoogleToken(jwt, user);
+    setView({ status: 'ready', jwt, user });
   }
 
+  if (view.status === 'loading') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontSize: 18, color: '#64748b' }}>
+        טוען...
+      </div>
+    );
+  }
 
-  const loadingScreen = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontSize: 18, color: '#64748b' }}>
-      טוען...
-    </div>
-  );
-
-  if (view.status === 'loading') return loadingScreen;
   if (view.status === 'login') return <LoginScreen onLogin={handleLogin} />;
 
-  if (view.status === 'need-setup') {
-    // Skip Google Calendar setup — show calendar without events until admin connects Google
-    return (
-      <Dashboard
-        jwt={view.jwt}
-        user={view.user}
-        calendarToken=""
-        onGoogleExpired={() => {}}
-      />
-    );
-  }
-
-  if (view.status === 'waiting') {
-    // Non-admin without Google token — show dashboard with empty calendar
-    return (
-      <Dashboard
-        jwt={view.jwt}
-        user={view.user}
-        calendarToken=""
-        onGoogleExpired={async () => {
-          const token = await fetchSharedToken(view.jwt);
-          if (token) setView({ status: 'ok', jwt: view.jwt, user: view.user, calendarToken: token });
-        }}
-      />
-    );
-  }
-
-  return (
-    <Dashboard
-      jwt={view.jwt}
-      user={view.user}
-      calendarToken={view.calendarToken}
-      onGoogleExpired={async () => {
-        localStorage.removeItem(GOOGLE_TOKEN_KEY);
-        const token = await fetchSharedToken(view.jwt);
-        if (token) setView({ status: 'ok', jwt: view.jwt, user: view.user, calendarToken: token });
-        else if (view.user.isAdmin) setView({ status: 'need-setup', jwt: view.jwt, user: view.user });
-        else setView({ status: 'waiting', jwt: view.jwt, user: view.user });
-      }}
-    />
-  );
+  return <Dashboard jwt={view.jwt} user={view.user} />;
 }
 
 export default function App() {

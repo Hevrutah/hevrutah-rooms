@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import type { CalendarEvent, RoomCalendar, UserInfo } from '../types';
 import {
-  createCalendarEvent,
-  updateCalendarEvent,
-  updateCalendarEventSeries,
-  deleteCalendarEvent,
-  deleteCalendarEventSeries,
-  deleteCalendarEventAndFollowing,
+  createRoomEvent,
+  updateRoomEvent,
+  updateRoomEventSeries,
+  deleteRoomEvent,
+  deleteRoomEventSeries,
+  deleteRoomEventAndFollowing,
   type RecurringOptions,
-} from '../googleCalendar';
+} from '../roomsApi';
 
 // 30-minute time slots from 07:00 to 22:00
 const TIME_SLOTS: string[] = [];
@@ -25,7 +25,6 @@ export type ModalState =
 interface Props {
   state: ModalState;
   rooms: RoomCalendar[];
-  accessToken: string;
   jwt: string;
   user: UserInfo;
   onClose: () => void;
@@ -38,7 +37,7 @@ function toDateInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, user, onClose, onSaved }) => {
+export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, onSaved }) => {
   const [name, setName] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [dateVal, setDateVal] = useState('');
@@ -150,15 +149,15 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
     try {
       if (isEdit) {
         if (mode === 'series' && masterEventId) {
-          await updateCalendarEventSeries(accessToken, roomId, masterEventId, saveName, startTime, endTime);
+          await updateRoomEventSeries(jwt, masterEventId, saveName, startTime, endTime);
         } else {
-          await updateCalendarEvent(accessToken, roomId, editEventId, saveName, startISO, endISO);
+          await updateRoomEvent(jwt, editEventId, saveName, startISO, endISO);
         }
       } else {
         const recurringOptions: RecurringOptions = recurring
           ? { freq: recurringFreq, until: recurringUntil || undefined }
           : null;
-        await createCalendarEvent(accessToken, roomId, saveName, startISO, endISO, recurringOptions);
+        await createRoomEvent(jwt, roomId, saveName, startISO, endISO, recurringOptions);
       }
       onSaved();
       onClose();
@@ -185,11 +184,11 @@ export const EventModal: React.FC<Props> = ({ state, rooms, accessToken, jwt, us
     setError(null);
     try {
       if (mode === 'series' && masterEventId) {
-        await deleteCalendarEventSeries(accessToken, roomId, masterEventId);
+        await deleteRoomEventSeries(jwt, masterEventId);
       } else if (mode === 'following' && masterEventId && isEdit && state && state.mode === 'edit') {
-        await deleteCalendarEventAndFollowing(accessToken, roomId, editEventId, masterEventId, state.event.start);
+        await deleteRoomEventAndFollowing(jwt, editEventId, masterEventId, state.event.start);
       } else {
-        await deleteCalendarEvent(accessToken, roomId, editEventId);
+        await deleteRoomEvent(jwt, editEventId);
       }
       onSaved();
       onClose();

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { RoomCalendar, Conflict } from './types';
-import { fetchAllRoomEvents } from './googleCalendar';
+import { fetchRoomEvents } from './roomsApi';
 import { detectConflicts } from './utils';
 import { REFRESH_INTERVAL_MS } from './constants';
 
-export function useCalendarData(accessToken: string | null, startDate: Date, endDate: Date) {
+export function useCalendarData(jwt: string, startDate: Date, endDate: Date) {
   const [rooms, setRooms] = useState<RoomCalendar[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export function useCalendarData(accessToken: string | null, startDate: Date, end
   const endTs   = endDate.getTime();
 
   const fetchData = useCallback(async () => {
-    if (!accessToken) return;
+    if (!jwt) return;
     setLoading(true);
     setError(null);
     try {
@@ -24,28 +24,28 @@ export function useCalendarData(accessToken: string | null, startDate: Date, end
       const extendedEnd = new Date(endTs);
       extendedEnd.setDate(extendedEnd.getDate() + 1);
 
-      const data = await fetchAllRoomEvents(accessToken, start, extendedEnd);
+      const data = await fetchRoomEvents(jwt, start, extendedEnd);
       setRooms(data);
       setConflicts(detectConflicts(data));
       setLastRefresh(new Date());
-    } catch (e: any) {
-      setError(e.message || 'שגיאה בטעינת נתונים');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'שגיאה בטעינת נתונים');
     } finally {
       setLoading(false);
     }
-  }, [accessToken, startTs, endTs]);
+  }, [jwt, startTs, endTs]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!jwt) return;
     timerRef.current = setInterval(fetchData, REFRESH_INTERVAL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [accessToken, fetchData]);
+  }, [jwt, fetchData]);
 
   return { rooms, conflicts, loading, error, lastRefresh, refetch: fetchData };
 }
