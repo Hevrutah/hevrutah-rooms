@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { addDays } from 'date-fns';
 import logo from './assets/logo.jpg';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
 import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
@@ -71,10 +71,54 @@ async function fetchSharedToken(jwt: string): Promise<string | null> {
 
 // ── Main Dashboard ───────────────────────────────────────────────
 
+function ConnectCalendarButton({ jwt, onConnected }: { jwt: string; onConnected: (token: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const connectGoogle = useGoogleLogin({
+    flow: 'auth-code',
+    scope: 'https://www.googleapis.com/auth/calendar',
+    onSuccess: async (res) => {
+      setLoading(true); setError(null);
+      try {
+        const r = await fetch('/api/calendar/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({ code: res.code, redirectUri: 'postmessage' }),
+        });
+        const data = await r.json();
+        if (data.accessToken || data.message === 'MANUAL_SAVE_REQUIRED') {
+          saveGoogleToken(data.accessToken);
+          onConnected(data.accessToken);
+        } else {
+          const token = await fetchSharedToken(jwt);
+          if (token) onConnected(token);
+          else setError('שגיאה בחיבור');
+        }
+      } catch { setError('שגיאת רשת'); }
+      setLoading(false);
+    },
+    onError: () => setError('ההתחברות נכשלה'),
+  });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {error && <span style={{ fontSize: 11, color: '#fca5a5' }}>{error}</span>}
+      <button
+        onClick={() => connectGoogle()}
+        disabled={loading}
+        style={{ ...navBtnStyle, background: 'rgba(66,133,244,0.3)', borderColor: 'rgba(66,133,244,0.6)' }}
+      >
+        {loading ? '🔄 מחבר...' : '🔗 חבר Google Calendar'}
+      </button>
+    </div>
+  );
+}
+
 function Dashboard({
   jwt,
   user,
-  calendarToken,
+  calendarToken: initialToken,
   onGoogleExpired,
 }: {
   jwt: string;
@@ -84,6 +128,7 @@ function Dashboard({
 }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [calendarToken, setCalendarToken] = useState(initialToken);
 
   // ── Infinite scroll days state ────────────────────────────────
   const [days, setDays] = useState<Date[]>(() => {
@@ -217,6 +262,9 @@ function Dashboard({
           )}
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
+          )}
+          {user.isAdmin && !calendarToken && (
+            <ConnectCalendarButton jwt={jwt} onConnected={(token) => setCalendarToken(token)} />
           )}
         </div>
       </div>
