@@ -90,7 +90,7 @@ function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: ()
 
 // ── Main Dashboard ───────────────────────────────────────────────
 
-function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo; onUnauthorized: () => void }) {
+function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo; onUnauthorized: () => void; }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [importKey, setImportKey] = useState(0);
@@ -105,13 +105,8 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
 
   const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd);
 
-  // Auto-logout when token is expired/invalid
-  useEffect(() => {
-    if (error && error.toLowerCase().includes('unauthorized')) {
-      localStorage.removeItem(SESSION_KEY);
-      onUnauthorized();
-    }
-  }, [error, onUnauthorized]);
+  // When token is expired/invalid — show re-login button instead of auto-logout loop
+  const isUnauthorized = !!(error && error.toLowerCase().includes('unauthorized'));
 
   useEffect(() => {
     if (importKey > 0) refetch();
@@ -229,7 +224,16 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
       </div>
 
       {/* Error bar */}
-      {error && !error.toLowerCase().includes('unauthorized') && (
+      {isUnauthorized && (
+        <div style={{ flexShrink: 0, background: '#fef9c3', border: '1px solid #fde68a', color: '#92400e', padding: '8px 16px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
+          ⚠️ פג תוקף הכניסה —
+          <button onClick={() => { localStorage.removeItem(SESSION_KEY); onUnauthorized(); }}
+            style={{ padding: '3px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+            כנס מחדש
+          </button>
+        </div>
+      )}
+      {error && !isUnauthorized && (
         <div style={{
           flexShrink: 0,
           background: '#fef2f2', border: '1px solid #fecaca',
