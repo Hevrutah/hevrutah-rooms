@@ -90,7 +90,7 @@ function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: ()
 
 // ── Main Dashboard ───────────────────────────────────────────────
 
-function Dashboard({ jwt, user }: { jwt: string; user: UserInfo }) {
+function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo; onUnauthorized: () => void }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [importKey, setImportKey] = useState(0);
@@ -104,6 +104,14 @@ function Dashboard({ jwt, user }: { jwt: string; user: UserInfo }) {
   const rangeEnd   = useMemo(() => days[days.length - 1], [days]);
 
   const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd);
+
+  // Auto-logout when token is expired/invalid
+  useEffect(() => {
+    if (error && error.toLowerCase().includes('unauthorized')) {
+      localStorage.removeItem(SESSION_KEY);
+      onUnauthorized();
+    }
+  }, [error, onUnauthorized]);
 
   useEffect(() => {
     if (importKey > 0) refetch();
@@ -221,7 +229,7 @@ function Dashboard({ jwt, user }: { jwt: string; user: UserInfo }) {
       </div>
 
       {/* Error bar */}
-      {error && (
+      {error && !error.toLowerCase().includes('unauthorized') && (
         <div style={{
           flexShrink: 0,
           background: '#fef2f2', border: '1px solid #fecaca',
@@ -340,7 +348,7 @@ function AppInner() {
 
   if (view.status === 'login') return <LoginScreen onLogin={handleLogin} />;
 
-  return <Dashboard jwt={view.jwt} user={view.user} />;
+  return <Dashboard jwt={view.jwt} user={view.user} onUnauthorized={() => setView({ status: 'login' })} />;
 }
 
 export default function App() {
