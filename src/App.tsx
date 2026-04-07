@@ -7,7 +7,6 @@ import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
 import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
-import { ReferralsPage } from './components/referrals/ReferralsPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
@@ -85,7 +84,6 @@ function Dashboard({
 }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [showReferrals, setShowReferrals] = useState(false);
 
   // ── Infinite scroll days state ────────────────────────────────
   const [days, setDays] = useState<Date[]>(() => {
@@ -185,9 +183,6 @@ function Dashboard({
     return <AdminPage jwt={jwt} user={user} onClose={() => setShowAdmin(false)} />;
   }
 
-  if (showReferrals) {
-    return <ReferralsPage jwt={jwt} user={user} onClose={() => setShowReferrals(false)} />;
-  }
 
   return (
     <div style={{
