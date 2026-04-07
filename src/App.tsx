@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } fr
 import { addDays } from 'date-fns';
 import logo from './assets/logo.jpg';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-import { LoginScreen } from './components/LoginScreen';
 import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
 import { EventModal } from './components/EventModal';
@@ -293,11 +292,31 @@ const navBtnStyle: React.CSSProperties = {
   cursor: 'pointer', fontFamily: 'inherit',
 };
 
+// ── "Go to portal" screen ────────────────────────────────────────
+
+function GoToPortal() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', fontFamily: "'Segoe UI', Arial, sans-serif", direction: 'rtl' }}>
+      <div style={{ background: 'white', borderRadius: 16, padding: 44, textAlign: 'center', maxWidth: 360, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        <img src={logo} alt="חברותא" style={{ width: 140, marginBottom: 20, objectFit: 'contain' }} />
+        <h2 style={{ margin: '0 0 10px', fontSize: 18, color: '#1e293b' }}>ניהול חדרים</h2>
+        <p style={{ color: '#64748b', fontSize: 14, marginBottom: 28 }}>כניסה דרך פורטל חברותא בלבד</p>
+        <button
+          onClick={() => { window.location.href = 'https://hevrutah-portal.vercel.app'; }}
+          style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          כניסה לפורטל →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── App root ─────────────────────────────────────────────────────
 
 type AppView =
   | { status: 'loading' }
-  | { status: 'login' }
+  | { status: 'no-session' }
   | { status: 'ready'; jwt: string; user: UserInfo };
 
 function AppInner() {
@@ -326,21 +345,15 @@ function AppInner() {
         setView({ status: 'ready', jwt: portalToken, user });
         return;
       } catch {
-        // fall through to normal login
+        // invalid token — fall through
       }
     }
 
-    // ── Normal session restore ─────────────────────────────────────
+    // ── Restore saved session ─────────────────────────────────────
     const session = loadSession();
-    if (!session) { setView({ status: 'login' }); return; }
+    if (!session) { setView({ status: 'no-session' }); return; }
     setView({ status: 'ready', jwt: session.jwt, user: session.user });
   }, []);
-
-  function handleLogin(jwt: string, username: string, name: string, isAdmin: boolean, therapistName: string | null, role: UserInfo['role'] = 'hevrutah') {
-    const user: UserInfo = { username, name, role, isAdmin, therapistName };
-    saveSession(jwt, user);
-    setView({ status: 'ready', jwt, user });
-  }
 
   if (view.status === 'loading') {
     return (
@@ -350,9 +363,9 @@ function AppInner() {
     );
   }
 
-  if (view.status === 'login') return <LoginScreen onLogin={handleLogin} />;
+  if (view.status === 'no-session') return <GoToPortal />;
 
-  return <Dashboard jwt={view.jwt} user={view.user} onUnauthorized={() => setView({ status: 'login' })} />;
+  return <Dashboard jwt={view.jwt} user={view.user} onUnauthorized={() => { localStorage.removeItem(SESSION_KEY); setView({ status: 'no-session' }); }} />;
 }
 
 export default function App() {
