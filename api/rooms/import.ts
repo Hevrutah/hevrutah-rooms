@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
-import { saveRoomEvents, type RoomEvent } from '../lib/rooms-db';
+import { saveRoomEvents } from '../lib/rooms-db.js';
+import type { RoomEvent } from '../lib/rooms-db.js';
 
 function verifyAdmin(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
