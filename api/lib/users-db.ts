@@ -10,6 +10,7 @@ export interface User {
   passwordHash: string;
   role: 'admin' | 'hevrutah' | 'external';
   therapistName?: string | null;
+  airtableAccess?: boolean;
 }
 
 const REDIS_KEY = 'hevrutah:users:v2';

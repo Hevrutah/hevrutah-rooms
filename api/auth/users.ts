@@ -15,7 +15,7 @@ function verifyToken(req: VercelRequest): JwtPayload | null {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return null;
   try {
-    return jwt.verify(auth.slice(7), process.env.JWT_SECRET!) as JwtPayload;
+    return jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024') as JwtPayload;
   } catch { return null; }
 }
 
@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const users = await getUsers();
     const list = isAdmin ? users : users.filter(u => u.username === caller.username);
     return res.status(200).json(
-      list.map(u => ({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null }))
+      list.map(u => ({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null, airtableAccess: u.airtableAccess ?? false }))
     );
   }
 
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'אין הרשאה לערוך משתמשים אחרים' });
     }
 
-    const { name, password, role, email, therapistName } = req.body || {};
+    const { name, password, role, email, therapistName, airtableAccess } = req.body || {};
 
     // Only admin can change password
     if (password && !isAdmin) {
@@ -125,6 +125,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (password && isAdmin) {
       users[idx].passwordHash = await bcrypt.hash(password, 12);
     }
+    if (isAdmin && airtableAccess !== undefined) {
+      users[idx].airtableAccess = !!airtableAccess;
+    }
 
     try {
       await saveUsers(users);
@@ -133,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const u = users[idx];
-    return res.status(200).json({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null });
+    return res.status(200).json({ id: u.id, name: u.name, username: u.username, email: u.email ?? null, role: u.role, therapistName: u.therapistName ?? null, airtableAccess: u.airtableAccess ?? false });
   }
 
   // DELETE — remove user

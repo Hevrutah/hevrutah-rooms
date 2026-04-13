@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    jwt.verify(auth.slice(7), process.env.JWT_SECRET!);
+    jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024');
   } catch { return res.status(401).json({ error: 'Invalid token' }); }
 
   const refreshToken = getRefreshToken();

@@ -5,7 +5,7 @@ import { getRoomEvents, saveRoomEvents } from '../lib/rooms-db.js';
 function verifyJwt(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return false;
-  try { jwt.verify(auth.slice(7), process.env.JWT_SECRET!); return true; }
+  try { jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024'); return true; }
   catch { return false; }
 }
 

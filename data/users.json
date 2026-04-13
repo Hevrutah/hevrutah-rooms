@@ -3,16 +3,45 @@
     "id": "1",
     "name": "יעד מידן",
     "username": "yaadm",
-    "passwordHash": "$2b$12$VfC.AS3XWlWGR1woeK/3Hu2Y7vkATXV3cdMEx1kKzr29WwEmCl0oG",
+    "passwordHash": "$2b$12$0OXdXeJU/Dh.6rEUl4ux9Oj7B1nKuosRtzwZdm3MRCIzE0ZNLDu9G",
     "role": "admin",
-    "therapistName": null
+    "therapistName": null,
+    "airtableAccess": true
   },
   {
     "id": "1774777355201",
     "name": "אלה היימן",
     "username": "elah",
-    "passwordHash": "$2b$12$TBWf5iM06EOu0tqA0srhTOlzXIUt4YooQIGYXtqZ5l.iOmix2I1ui",
+    "passwordHash": "$2b$12$0OXdXeJU/Dh.6rEUl4ux9Oj7B1nKuosRtzwZdm3MRCIzE0ZNLDu9G",
     "role": "hevrutah",
-    "therapistName": "אלה"
+    "therapistName": "אלה",
+    "airtableAccess": true
+  },
+  {
+    "id": "1774777355202",
+    "name": "הייה",
+    "username": "hayah",
+    "passwordHash": "$2b$12$0OXdXeJU/Dh.6rEUl4ux9Oj7B1nKuosRtzwZdm3MRCIzE0ZNLDu9G",
+    "role": "hevrutah",
+    "therapistName": "הייה",
+    "airtableAccess": true
+  },
+  {
+    "id": "1774777355203",
+    "name": "גידי",
+    "username": "gidi",
+    "passwordHash": "$2b$12$0OXdXeJU/Dh.6rEUl4ux9Oj7B1nKuosRtzwZdm3MRCIzE0ZNLDu9G",
+    "role": "hevrutah",
+    "therapistName": "גידי",
+    "airtableAccess": false
+  },
+  {
+    "id": "1774777355204",
+    "name": "יותם",
+    "username": "yotam",
+    "passwordHash": "$2b$12$0OXdXeJU/Dh.6rEUl4ux9Oj7B1nKuosRtzwZdm3MRCIzE0ZNLDu9G",
+    "role": "hevrutah",
+    "therapistName": "יותם",
+    "airtableAccess": false
   }
 ]

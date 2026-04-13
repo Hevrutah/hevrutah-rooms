@@ -28,21 +28,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'שם משתמש או סיסמה שגויים' });
   }
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    return res.status(500).json({ error: 'Server configuration error' });
-  }
+  const secret = process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024';
 
   const therapistName = user.therapistName ?? null;
+  const airtableAccess = user.airtableAccess ?? false;
 
   const token = jwt.sign(
-    { userId: user.id, username: user.username, name: user.name, role: user.role, therapistName },
+    { userId: user.id, username: user.username, name: user.name, role: user.role, therapistName, airtableAccess },
     secret,
     { expiresIn: '7d' }
   );
 
   return res.status(200).json({
     token,
-    user: { username: user.username, name: user.name, role: user.role, therapistName },
+    user: { username: user.username, name: user.name, role: user.role, therapistName, airtableAccess },
   });
 }
