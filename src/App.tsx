@@ -334,7 +334,7 @@ function AppInner() {
             therapistName: payload.therapistName ?? null,
           };
           saveSession(data.token, user);
-          setView({ status: 'ready', jwt: data.token, user });
+          window.location.reload(); // reload cleanly — session now in localStorage
         })
         .catch(() => redirectToPortal());
       return;
