@@ -301,7 +301,6 @@ function redirectToPortal() {
 
 type AppView =
   | { status: 'loading' }
-  | { status: 'no-session' }
   | { status: 'ready'; jwt: string; user: UserInfo };
 
 function AppInner() {
@@ -321,7 +320,7 @@ function AppInner() {
       })
         .then(r => r.json())
         .then(data => {
-          if (!data.token) { setView({ status: 'no-session' }); return; }
+          if (!data.token) { redirectToPortal(); return; }
           // Decode user info from the new rooms JWT
           const base64 = data.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
           const json = decodeURIComponent(atob(base64).split('').map((c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
@@ -334,7 +333,7 @@ function AppInner() {
             therapistName: payload.therapistName ?? null,
           };
           saveSession(data.token, user);
-          window.location.reload(); // reload cleanly — session now in localStorage
+          setView({ status: 'ready', jwt: data.token, user });
         })
         .catch(() => redirectToPortal());
       return;
