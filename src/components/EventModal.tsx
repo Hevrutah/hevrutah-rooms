@@ -54,16 +54,28 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
 
-  // Fetch therapist names from DB (admin only)
+  // Build therapist list: unique names from all loaded events + rooms users DB
+  // Available to admin, coordinator, secretary (canManageCalendar)
   useEffect(() => {
-    if (!user.isAdmin) return;
+    if (!user.canManageCalendar) return;
+    // Collect unique names from existing calendar events
+    const fromEvents = new Set<string>();
+    for (const room of rooms) {
+      for (const ev of room.events) {
+        if (ev.summary?.trim()) fromEvents.add(ev.summary.trim());
+      }
+    }
+    // Also fetch registered users
     fetch('/api/auth/users', { headers: { Authorization: `Bearer ${jwt}` } })
       .then(r => r.json())
       .then((users: Array<{ name: string; therapistName: string | null }>) => {
-        setTherapistNames(users.map(u => u.therapistName || u.name));
+        users.forEach(u => { const n = u.therapistName || u.name; if (n) fromEvents.add(n); });
+        setTherapistNames([...fromEvents].sort((a, b) => a.localeCompare(b, 'he')));
       })
-      .catch(() => {});
-  }, [user.isAdmin, jwt]);
+      .catch(() => {
+        setTherapistNames([...fromEvents].sort((a, b) => a.localeCompare(b, 'he')));
+      });
+  }, [user.canManageCalendar, jwt, rooms]);
 
   useEffect(() => {
     if (!state) return;
@@ -87,7 +99,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
       setRecurringFreq('WEEKLY');
       setRecurringUntil('');
     } else {
-      setName(user.isAdmin ? '' : (user.therapistName ?? ''));
+      setName((user.isAdmin || user.canManageCalendar) ? '' : (user.therapistName ?? ''));
       setSelectedRoomId(state.room.id || state.room.name);
       const s = new Date(state.day);
       setDateVal(toDateInputValue(s));
@@ -116,14 +128,14 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
     ? state.room.name
     : (selectedRoom?.name ?? state.room.name);
 
-  // Permission: admin can edit anything; therapist can only edit their own events
-  // Trim both sides to avoid whitespace mismatches
+  // Permission: admin/coordinator/secretary can edit anything; therapist can only edit their own events
   const myName = user.therapistName?.trim() ?? '';
   const eventName = editEventSummary.trim();
   const isMyEvent = !!myName && myName === eventName;
+  const canManageAll = user.isAdmin || user.canManageCalendar;
 
-  const canEdit = !isEdit || user.isAdmin || isMyEvent;
-  const canDelete = isEdit && (user.isAdmin || isMyEvent);
+  const canEdit = !isEdit || canManageAll || isMyEvent;
+  const canDelete = isEdit && (canManageAll || isMyEvent);
 
   async function handleSave() {
     if (!name.trim()) { setError('יש להזין שם מטפל'); return; }
@@ -301,7 +313,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
           {/* Therapist name field */}
           <div>
             <label style={labelStyle}>שם המטפל</label>
-            {user.isAdmin ? (
+            {canManageAll ? (
               <select
                 style={inputStyle}
                 value={name}
@@ -485,12 +497,12 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={handleSave}
-                disabled={saving || (!user.isAdmin && !myName)}
+                disabled={saving || (!canManageAll && !myName)}
                 style={{
                   padding: '9px 20px', background: '#2563eb', color: 'white',
                   border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600,
                   cursor: (saving || (!user.isAdmin && !myName)) ? 'not-allowed' : 'pointer',
-                  opacity: (saving || (!user.isAdmin && !myName)) ? 0.5 : 1,
+                  opacity: (saving || (!canManageAll && !myName)) ? 0.5 : 1,
                   fontFamily: 'inherit',
                 }}
               >

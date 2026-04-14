@@ -37,12 +37,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const secret = process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024';
 
+  const canManageCalendar = ['admin', 'coordinator', 'secretary'].includes(payload.role ?? '');
+
   const roomsToken = jwt.sign(
     {
       username: payload.username,
       name: payload.name ?? payload.username,
       role: payload.role,
       therapistName: payload.therapistName ?? null,
+      canManageCalendar,
     },
     secret,
     { expiresIn: '7d' }

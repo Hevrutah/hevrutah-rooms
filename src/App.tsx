@@ -324,12 +324,13 @@ function AppInner() {
           // Decode user info from the new rooms JWT
           const base64 = data.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
           const json = decodeURIComponent(atob(base64).split('').map((c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-          const payload = JSON.parse(json) as { username: string; name: string; role: string; therapistName: string | null };
+          const payload = JSON.parse(json) as { username: string; name: string; role: string; therapistName: string | null; canManageCalendar?: boolean };
           const user: UserInfo = {
             username: payload.username,
             name: payload.name,
             role: payload.role === 'admin' ? 'admin' : 'hevrutah',
             isAdmin: payload.role === 'admin',
+            canManageCalendar: payload.canManageCalendar ?? payload.role === 'admin',
             therapistName: payload.therapistName ?? null,
           };
           saveSession(data.token, user);

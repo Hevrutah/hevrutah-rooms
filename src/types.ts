@@ -17,6 +17,7 @@ export interface UserInfo {
   name: string;
   role: UserRole;
   isAdmin: boolean;
+  canManageCalendar: boolean; // admin, coordinator, or secretary can manage all events
   therapistName: string | null; // matched against event summary for permission checks
   airtableAccess?: boolean;
 }
