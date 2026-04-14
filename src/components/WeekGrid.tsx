@@ -16,9 +16,8 @@ interface Props {
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
 }
 
-function eventColor(event: CalendarEvent, col: number, totalCols: number): string {
-  if (totalCols === 1) return event.isRecurring ? '#3b82f6' : '#22c55e';
-  return col === 0 ? '#3b82f6' : '#ef4444';
+function eventColor(roomIdx: number): string {
+  return ROOM_COLORS[roomIdx % ROOM_COLORS.length];
 }
 
 interface EventLayout { event: CalendarEvent; col: number; totalCols: number }
@@ -184,7 +183,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventCli
                       style={{ position: 'relative', height: '100%', pointerEvents: 'none' }}
                     >
                       {layouts.map(({ event, col, totalCols: tc }) => {
-                        const color   = eventColor(event, col, tc);
+                        const color   = eventColor(rIdx);
                         const top     = calcTop(event.start);
                         const height  = calcHeight(event.start, event.end);
                         const sFmt    = format(new Date(event.start), 'HH:mm');
