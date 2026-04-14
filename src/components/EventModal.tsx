@@ -54,28 +54,18 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
 
-  // Build therapist list: unique names from all loaded events + rooms users DB
+  // Build therapist list from unique event summaries (these are the actual names used in bookings)
   // Available to admin, coordinator, secretary (canManageCalendar)
   useEffect(() => {
     if (!user.canManageCalendar) return;
-    // Collect unique names from existing calendar events
-    const fromEvents = new Set<string>();
+    const names = new Set<string>();
     for (const room of rooms) {
       for (const ev of room.events) {
-        if (ev.summary?.trim()) fromEvents.add(ev.summary.trim());
+        if (ev.summary?.trim()) names.add(ev.summary.trim());
       }
     }
-    // Also fetch registered users
-    fetch('/api/auth/users', { headers: { Authorization: `Bearer ${jwt}` } })
-      .then(r => r.json())
-      .then((users: Array<{ name: string; therapistName: string | null }>) => {
-        users.forEach(u => { const n = u.therapistName || u.name; if (n) fromEvents.add(n); });
-        setTherapistNames([...fromEvents].sort((a, b) => a.localeCompare(b, 'he')));
-      })
-      .catch(() => {
-        setTherapistNames([...fromEvents].sort((a, b) => a.localeCompare(b, 'he')));
-      });
-  }, [user.canManageCalendar, jwt, rooms]);
+    setTherapistNames([...names].sort((a, b) => a.localeCompare(b, 'he')));
+  }, [user.canManageCalendar, rooms]);
 
   useEffect(() => {
     if (!state) return;
