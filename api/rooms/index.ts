@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (recurring?.freq) {
       const until = recurring.until || (() => {
         const d = new Date();
-        d.setFullYear(d.getFullYear() + 1);
+        d.setFullYear(d.getFullYear() + 3); // no end date → expand 3 years forward
         return d.toISOString().slice(0, 10);
       })();
       events.push(...expandRecurring(summary, start, end, calendarId, roomName || calendarId, recurring.freq, until));

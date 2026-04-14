@@ -46,6 +46,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [recurring, setRecurring] = useState(false);
   const [recurringFreq, setRecurringFreq] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('WEEKLY');
   const [recurringUntil, setRecurringUntil] = useState('');
+  const [recurringNoEnd, setRecurringNoEnd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
       setEndTime(`${pad(state.hour + 1)}:00`);
       setRecurring(false);
       setRecurringFreq('WEEKLY');
+      setRecurringNoEnd(false);
       const defaultUntil = new Date();
       defaultUntil.setMonth(defaultUntil.getMonth() + 3);
       setRecurringUntil(toDateInputValue(defaultUntil));
@@ -153,7 +155,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
         }
       } else {
         const recurringOptions: RecurringOptions = recurring
-          ? { freq: recurringFreq, until: recurringUntil || undefined }
+          ? { freq: recurringFreq, until: recurringNoEnd ? undefined : (recurringUntil || undefined) }
           : null;
         await createRoomEvent(jwt, roomId, saveName, startISO, endISO, recurringOptions);
       }
@@ -386,14 +388,27 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>עד תאריך:</label>
-                    <input
-                      type="date"
-                      style={inputStyle}
-                      value={recurringUntil}
-                      onChange={e => setRecurringUntil(e.target.value)}
-                      min={toDateInputValue(new Date())}
-                    />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#374151', direction: 'rtl', userSelect: 'none' as const, marginBottom: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={recurringNoEnd}
+                        onChange={e => setRecurringNoEnd(e.target.checked)}
+                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      ללא תאריך סיום
+                    </label>
+                    {!recurringNoEnd && (
+                      <>
+                        <label style={labelStyle}>עד תאריך:</label>
+                        <input
+                          type="date"
+                          style={inputStyle}
+                          value={recurringUntil}
+                          onChange={e => setRecurringUntil(e.target.value)}
+                          min={toDateInputValue(new Date())}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               )}
