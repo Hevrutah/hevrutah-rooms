@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
-import { addDays } from 'date-fns';
+import { addDays, startOfWeek } from 'date-fns';
 import logo from './assets/logo.jpg';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { WeekNav } from './components/WeekNav';
 import { WeekGrid } from './components/WeekGrid';
+import { WeekCalendarView } from './components/WeekCalendarView';
 import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
 import type { ModalState } from './components/EventModal';
@@ -93,14 +94,27 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [importKey, setImportKey] = useState(0);
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(new Date(), { weekStartsOn: 0 }) // Sunday
+  );
 
   const [days, setDays] = useState<Date[]>(() => {
     const today = new Date();
     return Array.from({ length: 28 }, (_, i) => addDays(today, i - 7));
   });
 
-  const rangeStart = useMemo(() => days[0],               [days]);
-  const rangeEnd   = useMemo(() => days[days.length - 1], [days]);
+  // For week view: fetch the whole week + buffer
+  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+
+  const rangeStart = useMemo(() =>
+    viewMode === 'week' ? addDays(weekStart, -1) : days[0],
+    [viewMode, weekStart, days]
+  );
+  const rangeEnd = useMemo(() =>
+    viewMode === 'week' ? addDays(weekEnd, 1) : days[days.length - 1],
+    [viewMode, weekEnd, days]
+  );
 
   const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd);
 
@@ -167,9 +181,16 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
   }, []);
 
   const goToday = useCallback(() => {
-    const el = document.querySelector('[data-today-section="true"]');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+    if (viewMode === 'week') {
+      setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    } else {
+      const el = document.querySelector('[data-today-section="true"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [viewMode]);
+
+  const prevWeek = useCallback(() => setWeekStart(d => addDays(d, -7)), []);
+  const nextWeek = useCallback(() => setWeekStart(d => addDays(d,  7)), []);
 
   const handleSlotClick = useCallback((room: RoomCalendar, day: Date, hour: number) => {
     setModal({ mode: 'create', room, day, hour });
@@ -242,36 +263,64 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         </div>
       )}
 
-      {/* Toolbar + Legend */}
-      <div style={{ flexShrink: 0, padding: '4px 16px', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 16, direction: 'rtl', flexWrap: 'wrap' }}>
-        <WeekNav onToday={goToday} loading={loading} lastRefresh={lastRefresh} />
-        <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#64748b' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#3b82f6' }} />
-            פגישה קבועה
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#22c55e' }} />
-            פגישה חד-פעמית
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#ef4444' }} />
-            ⚠️ חפיפת זמנים
-          </span>
+      {/* Toolbar */}
+      <div style={{ flexShrink: 0, padding: '4px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12, direction: 'rtl', flexWrap: 'wrap' }}>
+        {/* View toggle */}
+        <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+          {(['day', 'week'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              style={{
+                padding: '5px 14px', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', border: 'none',
+                background: viewMode === mode ? '#2563eb' : 'white',
+                color: viewMode === mode ? 'white' : '#374151',
+                fontWeight: viewMode === mode ? 700 : 400,
+              }}
+            >
+              {mode === 'day' ? '📅 יומי' : '📆 שבועי'}
+            </button>
+          ))}
         </div>
+
+        <WeekNav onToday={goToday} loading={loading} lastRefresh={lastRefresh} />
+
+        {/* Week navigation (only in week view) */}
+        {viewMode === 'week' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={nextWeek} style={navBtnStyle2}>›</button>
+            <button onClick={prevWeek} style={navBtnStyle2}>‹</button>
+            <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>
+              {weekStart.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}
+              {' – '}
+              {addDays(weekStart, 6).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Scrollable body */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden' }}>
-        <div ref={topSentinel} style={{ height: 1 }} />
-        <WeekGrid
-          rooms={rooms}
-          days={days}
-          onSlotClick={handleSlotClick}
-          onEventClick={handleEventClick}
-        />
-        <div ref={botSentinel} style={{ height: 1 }} />
-      </div>
+      {/* Body */}
+      {viewMode === 'week' ? (
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <WeekCalendarView
+            rooms={rooms}
+            weekStart={weekStart}
+            onSlotClick={handleSlotClick}
+            onEventClick={handleEventClick}
+          />
+        </div>
+      ) : (
+        <div ref={scrollRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden' }}>
+          <div ref={topSentinel} style={{ height: 1 }} />
+          <WeekGrid
+            rooms={rooms}
+            days={days}
+            onSlotClick={handleSlotClick}
+            onEventClick={handleEventClick}
+          />
+          <div ref={botSentinel} style={{ height: 1 }} />
+        </div>
+      )}
 
       <EventModal
         state={modal}
@@ -289,6 +338,13 @@ const navBtnStyle: React.CSSProperties = {
   padding: '4px 12px', fontSize: 12,
   background: 'rgba(255,255,255,0.15)', color: 'white',
   border: '1px solid rgba(255,255,255,0.3)', borderRadius: 5,
+  cursor: 'pointer', fontFamily: 'inherit',
+};
+
+const navBtnStyle2: React.CSSProperties = {
+  padding: '3px 10px', fontSize: 16, lineHeight: 1,
+  background: 'white', color: '#374151',
+  border: '1px solid #cbd5e1', borderRadius: 5,
   cursor: 'pointer', fontFamily: 'inherit',
 };
 

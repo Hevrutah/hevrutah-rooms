@@ -2,7 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import type { RoomCalendar, CalendarEvent } from '../types';
 import { getEventsForDay } from '../utils';
-import { HOURS_START, HOURS_END } from '../constants';
+import { HOURS_START, HOURS_END, ROOM_COLORS } from '../constants';
 
 const ROW_H  = 40;
 const TIME_W = 60;
@@ -115,8 +115,10 @@ export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventCli
                   key={rIdx}
                   style={{
                     padding: '3px 4px', textAlign: 'center',
-                    fontSize: 10, fontWeight: 600, color: '#374151',
-                    borderRight: rIdx < numRooms - 1 ? '1px solid #e2e8f0' : 'none',
+                    fontSize: 10, fontWeight: 700,
+                    color: 'white',
+                    background: ROOM_COLORS[rIdx % ROOM_COLORS.length],
+                    borderRight: rIdx < numRooms - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
                     overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                     direction: 'rtl',
                   }}

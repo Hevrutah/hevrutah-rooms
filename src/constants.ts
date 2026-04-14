@@ -1,3 +1,13 @@
+// Colors per room — order matches ROOM_CALENDARS
+export const ROOM_COLORS = [
+  '#6b7280', // החדר האפור  — אפור
+  '#3b82f6', // החדר של יעד — כחול
+  '#8b5cf6', // חדר אמצעי   — סגול
+  '#22c55e', // חדר חדש      — ירוק
+  '#f97316', // חדר קבוצות  — כתום
+  '#ec4899', // חדר שמאלי   — ורוד
+];
+
 export const ROOM_CALENDARS = [
   { name: 'החדר האפור', id: '' },
   { name: 'החדר של יעד', id: '' },
