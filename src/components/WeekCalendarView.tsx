@@ -48,7 +48,8 @@ interface Props {
 }
 
 export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClick, onEventClick }) => {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // 6 days: Sunday–Friday (skip Saturday = getDay() 6)
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -77,7 +78,7 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
       {/* Sticky header: day names */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `${TIME_W}px repeat(7, 1fr)`,
+        gridTemplateColumns: `${TIME_W}px repeat(6, 1fr)`,
         position: 'sticky', top: 0, zIndex: 10,
         background: '#f8fafc', borderBottom: '2px solid #e2e8f0',
         flexShrink: 0,
@@ -111,7 +112,7 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
       <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `${TIME_W}px repeat(7, 1fr)`,
+          gridTemplateColumns: `${TIME_W}px repeat(6, 1fr)`,
           minWidth: 500,
         }}>
           {/* Time gutter */}

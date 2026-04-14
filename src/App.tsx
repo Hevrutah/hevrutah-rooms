@@ -101,7 +101,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
 
   const [days, setDays] = useState<Date[]>(() => {
     const today = new Date();
-    return Array.from({ length: 28 }, (_, i) => addDays(today, i - 7));
+    return Array.from({ length: 28 }, (_, i) => addDays(today, i - 7)).filter(d => d.getDay() !== 6);
   });
 
   // For week view: fetch the whole week + buffer
@@ -146,7 +146,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         loadingRef.current = true;
         setDays(prev => {
           const last = prev[prev.length - 1];
-          return [...prev, ...Array.from({ length: LOAD_MORE }, (_, i) => addDays(last, i + 1))];
+          return [...prev, ...Array.from({ length: LOAD_MORE }, (_, i) => addDays(last, i + 1)).filter(d => d.getDay() !== 6)];
         });
         setTimeout(() => { loadingRef.current = false; }, 500);
       }
@@ -164,7 +164,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         prependH.current = scrollRef.current?.scrollHeight ?? 0;
         setDays(prev => {
           const first = prev[0];
-          return [...Array.from({ length: LOAD_MORE }, (_, i) => addDays(first, i - LOAD_MORE)), ...prev];
+          return [...Array.from({ length: LOAD_MORE }, (_, i) => addDays(first, i - LOAD_MORE)).filter(d => d.getDay() !== 6), ...prev];
         });
         setTimeout(() => { loadingRef.current = false; }, 500);
       }
