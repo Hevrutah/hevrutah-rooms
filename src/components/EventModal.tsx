@@ -54,18 +54,14 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
 
-  // Build therapist list from unique event summaries (these are the actual names used in bookings)
-  // Available to admin, coordinator, secretary (canManageCalendar)
+  // Fetch therapist list from portal (canRooms therapists, by their short name)
   useEffect(() => {
     if (!user.canManageCalendar) return;
-    const names = new Set<string>();
-    for (const room of rooms) {
-      for (const ev of room.events) {
-        if (ev.summary?.trim()) names.add(ev.summary.trim());
-      }
-    }
-    setTherapistNames([...names].sort((a, b) => a.localeCompare(b, 'he')));
-  }, [user.canManageCalendar, rooms]);
+    fetch('https://hevrutah-portal.vercel.app/api/users/therapists')
+      .then(r => r.json())
+      .then((names: string[]) => setTherapistNames(names))
+      .catch(() => {});
+  }, [user.canManageCalendar]);
 
   useEffect(() => {
     if (!state) return;
