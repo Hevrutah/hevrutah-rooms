@@ -90,7 +90,7 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
           return (
             <div key={i} style={{
               textAlign: 'center', padding: '6px 2px',
-              direction: 'rtl', borderLeft: '1px solid #e2e8f0',
+              direction: 'rtl', borderLeft: '3px solid #94a3b8',
             }}>
               <div style={{ fontSize: 11, color: '#64748b' }}>{HE_DAYS[day.getDay()]}</div>
               <div style={{
@@ -138,7 +138,7 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
             return (
               <div key={dayIdx} style={{
                 position: 'relative',
-                borderLeft: '1px solid #e2e8f0',
+                borderLeft: '3px solid #94a3b8',
                 background: isToday ? '#eff6ff' : 'white',
               }}>
                 {/* Hour grid lines — clickable slots */}
