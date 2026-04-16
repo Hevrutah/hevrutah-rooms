@@ -57,27 +57,28 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, allRooms, weekStart, 
     return ROOM_COLORS[(origIdx === -1 ? roomIdx : origIdx) % ROOM_COLORS.length];
   }
 
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-
-  // Mobile: show only the selected day (swipe left/right), default = today or first day
-  const todayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
-  const [mobileDayIdx, setMobileDayIdx] = useState(() => todayIdx >= 0 ? todayIdx : 0);
-
-  // Keep mobileDayIdx in range when days change
-  useEffect(() => {
-    const ti = days.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
-    if (ti >= 0) setMobileDayIdx(ti);
-  }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
   // 6 days: Sunday–Friday (skip Saturday = getDay() 6)
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const mq = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null;
+  const [isMobile, setIsMobile] = useState(() => mq?.matches ?? false);
+  useEffect(() => {
+    if (!mq) return;
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mobile: selected day index
+  const todayIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
+  const [mobileDayIdx, setMobileDayIdx] = useState(() => todayIdx >= 0 ? todayIdx : 0);
+  useEffect(() => {
+    const ti = days.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
+    if (ti >= 0) setMobileDayIdx(ti);
+  }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to 08:00 on mount
   useEffect(() => {
