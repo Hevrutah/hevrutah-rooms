@@ -12,7 +12,7 @@ import { useCalendarData } from './useCalendarData';
 import { fetchAllRoomEvents } from './googleCalendar';
 import { importFromGoogle } from './roomsApi';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
-import { GOOGLE_SCOPES } from './constants';
+import { GOOGLE_SCOPES, ROOM_COLORS } from './constants';
 
 const LOAD_MORE = 14;
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string || '504708739043-4c9j52bcvtofeul3u2vims5pp01ht1lp.apps.googleusercontent.com';
@@ -98,7 +98,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }) // Sunday
   );
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
 
   const [days, setDays] = useState<Date[]>(() => {
     const today = new Date();
@@ -216,11 +216,19 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
     }, 100);
   }, []);
 
-  // Filter rooms by selected room
+  // Filter rooms by selected rooms (empty set = all)
   const visibleRooms = useMemo(() =>
-    selectedRoomId ? rooms.filter(r => r.id === selectedRoomId) : rooms,
-    [rooms, selectedRoomId]
+    selectedRoomIds.size > 0 ? rooms.filter(r => selectedRoomIds.has(r.id)) : rooms,
+    [rooms, selectedRoomIds]
   );
+
+  function toggleRoom(id: string) {
+    setSelectedRoomIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   if (showAdmin && user.isAdmin) {
     return <AdminPage jwt={jwt} user={user} onClose={() => setShowAdmin(false)} />;
@@ -325,28 +333,34 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         {rooms.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto', flexWrap: 'wrap' }}>
             <button
-              onClick={() => setSelectedRoomId(null)}
+              onClick={() => setSelectedRoomIds(new Set())}
               style={{
                 ...navBtnStyle2,
-                background: selectedRoomId === null ? '#2563eb' : 'white',
-                color: selectedRoomId === null ? 'white' : '#374151',
-                fontWeight: selectedRoomId === null ? 700 : 400,
+                background: selectedRoomIds.size === 0 ? '#2563eb' : 'white',
+                color: selectedRoomIds.size === 0 ? 'white' : '#374151',
+                fontWeight: selectedRoomIds.size === 0 ? 700 : 400,
                 fontSize: 11,
               }}
-            >כל החדרים</button>
-            {rooms.map(room => (
-              <button
-                key={room.id}
-                onClick={() => setSelectedRoomId(selectedRoomId === room.id ? null : room.id)}
-                style={{
-                  ...navBtnStyle2,
-                  background: selectedRoomId === room.id ? '#2563eb' : 'white',
-                  color: selectedRoomId === room.id ? 'white' : '#374151',
-                  fontWeight: selectedRoomId === room.id ? 700 : 400,
-                  fontSize: 11,
-                }}
-              >{room.name}</button>
-            ))}
+            >כולם</button>
+            {rooms.map(room => {
+              const active = selectedRoomIds.has(room.id);
+              const origIdx = rooms.indexOf(room);
+              const btnColor = ROOM_COLORS[origIdx % ROOM_COLORS.length];
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => toggleRoom(room.id)}
+                  style={{
+                    ...navBtnStyle2,
+                    background: active ? btnColor : 'white',
+                    color: active ? 'white' : '#374151',
+                    fontWeight: active ? 700 : 400,
+                    fontSize: 11,
+                    borderColor: active ? btnColor : '#cbd5e1',
+                  }}
+                >{room.name}</button>
+              );
+            })}
           </div>
         )}
       </div>
