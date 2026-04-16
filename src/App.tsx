@@ -356,6 +356,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <WeekCalendarView
             rooms={visibleRooms}
+            allRooms={rooms}
             weekStart={weekStart}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}
@@ -367,6 +368,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
           <div ref={topSentinel} style={{ height: 1 }} />
           <WeekGrid
             rooms={visibleRooms}
+            allRooms={rooms}
             days={days}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}

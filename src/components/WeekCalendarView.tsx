@@ -44,13 +44,18 @@ function height(s: string, e: string) {
 
 interface Props {
   rooms: RoomCalendar[];
+  allRooms: RoomCalendar[];
   weekStart: Date;
   onSlotClick: (room: RoomCalendar, day: Date, hour: number) => void;
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
   onDayClick?: (day: Date) => void;
 }
 
-export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClick, onEventClick, onDayClick }) => {
+export const WeekCalendarView: React.FC<Props> = ({ rooms, allRooms, weekStart, onSlotClick, onEventClick, onDayClick }) => {
+  function roomColor(roomIdx: number, room: RoomCalendar): string {
+    const origIdx = allRooms.findIndex(r => r.id === room.id);
+    return ROOM_COLORS[(origIdx === -1 ? roomIdx : origIdx) % ROOM_COLORS.length];
+  }
   // 6 days: Sunday–Friday (skip Saturday = getDay() 6)
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
@@ -164,7 +169,7 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
 
               {/* Events */}
               {laid.map(({ event, room, roomIdx, col, totalCols }) => {
-                const color = ROOM_COLORS[roomIdx % ROOM_COLORS.length];
+                const color = roomColor(roomIdx, room);
                 const t = top(event.start);
                 const h = height(event.start, event.end);
                 const w = `calc(${100 / totalCols}% - 4px)`;

@@ -11,6 +11,7 @@ const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי
 
 interface Props {
   rooms: RoomCalendar[];
+  allRooms: RoomCalendar[];
   days: Date[];
   onSlotClick: (room: RoomCalendar, day: Date, hour: number) => void;
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
@@ -51,7 +52,11 @@ function calcHeight(s: string, e: string) {
 
 const HOUR_COUNT = HOURS_END - HOURS_START;
 
-export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventClick }) => {
+export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, onEventClick }) => {
+  function roomColor(room: RoomCalendar): string {
+    const idx = allRooms.findIndex(r => r.id === room.id);
+    return ROOM_COLORS[(idx === -1 ? 0 : idx) % ROOM_COLORS.length];
+  }
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -117,7 +122,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventCli
                     padding: '3px 4px', textAlign: 'center',
                     fontSize: 10, fontWeight: 700,
                     color: 'white',
-                    background: ROOM_COLORS[rIdx % ROOM_COLORS.length],
+                    background: roomColor(room),
                     borderRight: rIdx < numRooms - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
                     overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                     direction: 'rtl',
@@ -184,7 +189,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventCli
                       style={{ position: 'relative', height: '100%', pointerEvents: 'none' }}
                     >
                       {layouts.map(({ event, col, totalCols: tc }) => {
-                        const color   = eventColor(rIdx);
+                        const color   = roomColor(room);
                         const top     = calcTop(event.start);
                         const height  = calcHeight(event.start, event.end);
                         const sFmt    = format(new Date(event.start), 'HH:mm');
