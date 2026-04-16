@@ -20,6 +20,7 @@ for (let h = 7; h <= 22; h++) {
 export type ModalState =
   | { mode: 'create'; room: RoomCalendar; day: Date; hour: number }
   | { mode: 'edit'; event: CalendarEvent; room: RoomCalendar }
+  | { mode: 'duplicate'; event: CalendarEvent; room: RoomCalendar }
   | null;
 
 interface Props {
@@ -29,6 +30,7 @@ interface Props {
   user: UserInfo;
   onClose: () => void;
   onSaved: () => void;
+  onDuplicate?: (state: ModalState) => void;
 }
 
 
@@ -37,7 +39,7 @@ function toDateInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, onSaved }) => {
+export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, onSaved, onDuplicate }) => {
   const [name, setName] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [dateVal, setDateVal] = useState('');
@@ -85,6 +87,21 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
       setRecurring(false);
       setRecurringFreq('WEEKLY');
       setRecurringUntil('');
+    } else if (state.mode === 'duplicate') {
+      // Pre-fill everything from the original event, date left for user to change
+      setName(state.event.summary);
+      setSelectedRoomId(state.event.calendarId);
+      const s = new Date(state.event.start);
+      const e = new Date(state.event.end);
+      setDateVal(toDateInputValue(s));
+      setStartTime(`${pad(s.getHours())}:${pad(s.getMinutes())}`);
+      setEndTime(`${pad(e.getHours())}:${pad(e.getMinutes())}`);
+      setRecurring(false);
+      setRecurringFreq('WEEKLY');
+      setRecurringNoEnd(false);
+      const defaultUntil = new Date();
+      defaultUntil.setMonth(defaultUntil.getMonth() + 3);
+      setRecurringUntil(toDateInputValue(defaultUntil));
     } else {
       setName((user.isAdmin || user.canManageCalendar) ? '' : (user.therapistName ?? ''));
       setSelectedRoomId(state.room.id || state.room.name);
@@ -104,8 +121,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   if (!state) return null;
 
   const isEdit = state.mode === 'edit';
+  const isDuplicate = state.mode === 'duplicate';
   const editEventId = isEdit ? state.event.id : '';
-  const editEventSummary = isEdit ? state.event.summary : '';
+  const editEventSummary = (isEdit || isDuplicate) ? state.event.summary : '';
   const isRecurringEvent = isEdit && state.event.isRecurring;
   const masterEventId = isEdit ? (state.event.recurringEventId ?? '') : '';
 
@@ -154,6 +172,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
           await updateRoomEvent(jwt, editEventId, saveName, startISO, endISO);
         }
       } else {
+        // create or duplicate — both call createRoomEvent
         const recurringOptions: RecurringOptions = recurring
           ? { freq: recurringFreq, until: recurringNoEnd ? undefined : (recurringUntil || undefined) }
           : null;
@@ -262,7 +281,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>
-            {isEdit ? '✏️ עריכת פגישה' : '➕ הזמנת חדר'}
+            {isEdit ? '✏️ עריכת פגישה' : isDuplicate ? '📋 שכפול פגישה' : '➕ הזמנת חדר'}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
         </div>
@@ -521,6 +540,18 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
               </button>
             </div>
 
+            {isEdit && canManageAll && onDuplicate && (
+              <button
+                onClick={() => onDuplicate({ mode: 'duplicate', event: state.event, room: state.room })}
+                style={{
+                  padding: '9px 16px', background: '#f0fdf4', color: '#16a34a',
+                  border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 14,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                📋 שכפל
+              </button>
+            )}
             {canDelete && (
               <button
                 onClick={handleDeleteClick}

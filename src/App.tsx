@@ -382,6 +382,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
         user={user}
         onClose={() => setModal(null)}
         onSaved={refetch}
+        onDuplicate={setModal}
       />
     </div>
   );
