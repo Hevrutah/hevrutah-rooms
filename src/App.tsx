@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
-import { addDays, startOfWeek } from 'date-fns';
+import { addDays, startOfWeek, format } from 'date-fns';
 import logo from './assets/logo.jpg';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { WeekNav } from './components/WeekNav';
@@ -98,6 +98,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }) // Sunday
   );
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
   const [days, setDays] = useState<Date[]>(() => {
     const today = new Date();
@@ -199,6 +200,28 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
     setModal({ mode: 'edit', event, room });
   }, []);
 
+  const handleDayClick = useCallback((day: Date) => {
+    // Switch to daily view and ensure the clicked day is in the days array
+    const dateStr = format(day, 'yyyy-MM-dd');
+    setDays(prev => {
+      const exists = prev.some(d => format(d, 'yyyy-MM-dd') === dateStr);
+      if (exists) return prev;
+      // Build a window around the clicked date
+      return Array.from({ length: 28 }, (_, i) => addDays(day, i - 7)).filter(d => d.getDay() !== 6);
+    });
+    setViewMode('day');
+    setTimeout(() => {
+      const el = document.querySelector(`[data-date="${dateStr}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, []);
+
+  // Filter rooms by selected room
+  const visibleRooms = useMemo(() =>
+    selectedRoomId ? rooms.filter(r => r.id === selectedRoomId) : rooms,
+    [rooms, selectedRoomId]
+  );
+
   if (showAdmin && user.isAdmin) {
     return <AdminPage jwt={jwt} user={user} onClose={() => setShowAdmin(false)} />;
   }
@@ -297,23 +320,53 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
             </span>
           </div>
         )}
+
+        {/* Room filter */}
+        {rooms.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setSelectedRoomId(null)}
+              style={{
+                ...navBtnStyle2,
+                background: selectedRoomId === null ? '#2563eb' : 'white',
+                color: selectedRoomId === null ? 'white' : '#374151',
+                fontWeight: selectedRoomId === null ? 700 : 400,
+                fontSize: 11,
+              }}
+            >כל החדרים</button>
+            {rooms.map(room => (
+              <button
+                key={room.id}
+                onClick={() => setSelectedRoomId(selectedRoomId === room.id ? null : room.id)}
+                style={{
+                  ...navBtnStyle2,
+                  background: selectedRoomId === room.id ? '#2563eb' : 'white',
+                  color: selectedRoomId === room.id ? 'white' : '#374151',
+                  fontWeight: selectedRoomId === room.id ? 700 : 400,
+                  fontSize: 11,
+                }}
+              >{room.name}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Body */}
       {viewMode === 'week' ? (
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <WeekCalendarView
-            rooms={rooms}
+            rooms={visibleRooms}
             weekStart={weekStart}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}
+            onDayClick={handleDayClick}
           />
         </div>
       ) : (
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden' }}>
           <div ref={topSentinel} style={{ height: 1 }} />
           <WeekGrid
-            rooms={rooms}
+            rooms={visibleRooms}
             days={days}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}

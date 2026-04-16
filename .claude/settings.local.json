@@ -13,7 +13,13 @@
       "Bash(vercel --version)",
       "Bash(npm install:*)",
       "Bash(node -e \"const bcrypt = require\\(''bcryptjs''\\); bcrypt.hash\\(''Galgal1123'', 12\\).then\\(h => console.log\\(h\\)\\);\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git rm:*)",
+      "Bash(python3 -c \"import json,sys; users=json.load\\(sys.stdin\\); [print\\(u.get\\(''''name''''\\), u.get\\(''''role''''\\), u.get\\(''''therapistName'''',''''''''\\)\\) for u in users]\")",
+      "Bash(dir \"C:\\\\Users\\\\elakn\")",
+      "Bash(find C:Userselaknhevrutah-referrals -name *.ts -o -name *.tsx)",
+      "Bash(gh run:*)",
+      "Bash(cmd /c \"cd C:\\\\Users\\\\elakn\\\\hevrutah-referrals && npx tsc --noEmit 2>&1\")"
     ]
   }
 }

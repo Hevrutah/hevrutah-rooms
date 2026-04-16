@@ -47,9 +47,10 @@ interface Props {
   weekStart: Date;
   onSlotClick: (room: RoomCalendar, day: Date, hour: number) => void;
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
+  onDayClick?: (day: Date) => void;
 }
 
-export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClick, onEventClick }) => {
+export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClick, onEventClick, onDayClick }) => {
   // 6 days: Sunday–Friday (skip Saturday = getDay() 6)
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
@@ -94,14 +95,22 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, weekStart, onSlotClic
               direction: 'rtl', borderLeft: DAY_BORDER,
             }}>
               <div style={{ fontSize: 11, color: '#64748b' }}>{HE_DAYS[day.getDay()]}</div>
-              <div style={{
-                fontSize: 15, fontWeight: 700,
-                width: 28, height: 28, margin: '2px auto 0',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '50%',
-                background: isToday ? '#2563eb' : 'transparent',
-                color: isToday ? 'white' : '#1e293b',
-              }}>
+              <div
+                onClick={() => onDayClick?.(day)}
+                title="עבור לתצוגה יומית"
+                style={{
+                  fontSize: 15, fontWeight: 700,
+                  width: 28, height: 28, margin: '2px auto 0',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? '#2563eb' : 'transparent',
+                  color: isToday ? 'white' : '#1e293b',
+                  cursor: onDayClick ? 'pointer' : 'default',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = '#dbeafe'; }}
+                onMouseLeave={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
                 {format(day, 'd')}
               </div>
             </div>

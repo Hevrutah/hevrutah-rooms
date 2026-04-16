@@ -76,6 +76,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, days, onSlotClick, onEventCli
           <div
             key={dIdx}
             data-today-section={isToday ? 'true' : undefined}
+            data-date={format(day, 'yyyy-MM-dd')}
             style={{ borderBottom: '3px solid #cbd5e1' }}
           >
             {/* Day header */}
