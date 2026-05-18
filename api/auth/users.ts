@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 import { getUsers, saveUsers } from '../lib/users-db.js';
 import { sendWelcomeEmail } from '../lib/email.js';
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET env var is not configured');
+
 interface JwtPayload {
   userId: string;
   username: string;
@@ -15,7 +18,7 @@ function verifyToken(req: VercelRequest): JwtPayload | null {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return null;
   try {
-    return jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024') as JwtPayload;
+    return jwt.verify(auth.slice(7), JWT_SECRET) as JwtPayload;
   } catch { return null; }
 }
 

@@ -3,10 +3,13 @@ import jwt from 'jsonwebtoken';
 import { getRoomEvents, saveRoomEvents } from '../lib/rooms-db.js';
 import type { RoomEvent } from '../lib/rooms-db.js';
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET env var is not configured');
+
 function verifyJwt(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return false;
-  try { jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024'); return true; }
+  try { jwt.verify(auth.slice(7), JWT_SECRET); return true; }
   catch { return false; }
 }
 

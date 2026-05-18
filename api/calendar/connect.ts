@@ -3,11 +3,14 @@ import jwt from 'jsonwebtoken';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET env var is not configured');
+
 function verifyAdmin(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return false;
   try {
-    const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024') as { role: string };
+    const payload = jwt.verify(auth.slice(7), JWT_SECRET) as { role: string };
     return payload.role === 'admin';
   } catch { return false; }
 }

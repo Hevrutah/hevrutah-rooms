@@ -3,6 +3,9 @@ import jwt from 'jsonwebtoken';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET env var is not configured');
+
 function getRefreshToken(): string | null {
   if (process.env.GOOGLE_REFRESH_TOKEN) return process.env.GOOGLE_REFRESH_TOKEN;
   try {
@@ -21,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'hevrutah-rooms-secret-2024');
+    jwt.verify(auth.slice(7), JWT_SECRET);
   } catch { return res.status(401).json({ error: 'Invalid token' }); }
 
   const refreshToken = getRefreshToken();
