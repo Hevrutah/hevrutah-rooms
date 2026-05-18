@@ -39,10 +39,10 @@ function saveSession(jwt: string, user: UserInfo) {
 
 
 // ── Import button: admin-only, one-time Google Calendar import ───
-// Currently disabled from UI (per user request). Kept here for future restoration.
+// Currently hidden from UI (per user request) via SHOW_GCAL_IMPORT below.
+// Flip the flag to true to bring back the button.
+const SHOW_GCAL_IMPORT = false;
 
-// @ts-expect-error preserved for future restoration
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: () => void }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -96,7 +96,7 @@ function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: ()
 function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo; onUnauthorized: () => void; }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [importKey] = useState(0); // setter unused while Google Calendar import is disabled — see ImportCalendarButton
+  const [importKey, setImportKey] = useState(0);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }) // Sunday
@@ -271,11 +271,9 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
-          {/* Google Calendar import — disabled (kept in code for future restoration).
-              To restore: re-enable this block. */}
-          {/* {user.isAdmin && (
+          {SHOW_GCAL_IMPORT && user.isAdmin && (
             <ImportCalendarButton jwt={jwt} onImported={() => setImportKey(k => k + 1)} />
-          )} */}
+          )}
         </div>
       </div>
 
