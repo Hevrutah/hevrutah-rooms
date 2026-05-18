@@ -17,10 +17,6 @@ interface Props {
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
 }
 
-function eventColor(roomIdx: number): string {
-  return ROOM_COLORS[roomIdx % ROOM_COLORS.length];
-}
-
 interface EventLayout { event: CalendarEvent; col: number; totalCols: number }
 
 function computeEventLayout(events: CalendarEvent[]): EventLayout[] {
