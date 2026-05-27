@@ -161,7 +161,8 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, allRooms, weekStart, 
 
   if (isMobile) {
     const mDay = days[mobileDayIdx] ?? days[0];
-    const mIsToday = mDay ? format(mDay, 'yyyy-MM-dd') === todayStr : false;
+    const ds = mDay ? format(mDay, 'yyyy-MM-dd') : '';
+    const ROOM_W = 92; // px per room column
 
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -174,39 +175,119 @@ export const WeekCalendarView: React.FC<Props> = ({ rooms, allRooms, weekStart, 
           {days.map((day, i) => {
             const isToday = format(day, 'yyyy-MM-dd') === todayStr;
             const isActive = i === mobileDayIdx;
+            const hasEvents = rooms.some(r =>
+              r.events.some(e => format(new Date(e.start), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'))
+            );
             return (
               <button key={i} onClick={() => setMobileDayIdx(i)} style={{
                 flex: 1, minWidth: 40, padding: '4px 2px',
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
               }}>
-                <span style={{ fontSize: 10, color: isToday ? '#2563eb' : '#64748b' }}>{HE_DAYS[day.getDay()]}</span>
+                <span style={{ fontSize: 11, color: isToday ? '#2563eb' : '#64748b', fontWeight: isActive ? 700 : 400 }}>
+                  {HE_DAYS[day.getDay()]}
+                </span>
                 <span style={{
-                  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: '50%',
                   background: isToday ? '#2563eb' : isActive ? '#dbeafe' : 'transparent',
                   color: isToday ? 'white' : isActive ? '#1d4ed8' : '#1e293b',
-                  fontSize: 14, fontWeight: 700,
+                  fontSize: 15, fontWeight: 700,
                 }}>{format(day, 'd')}</span>
+                {/* dot for days with events */}
+                <div style={{
+                  width: 4, height: 4, borderRadius: '50%', marginTop: -1,
+                  background: hasEvents ? (isToday ? '#2563eb' : isActive ? '#1d4ed8' : '#94a3b8') : 'transparent',
+                }} />
               </button>
             );
           })}
         </div>
-        {/* Single day grid */}
-        <div style={{ flex: 1, overflowY: 'auto' }} ref={scrollRef}>
-          <div style={{ display: 'flex' }}>
-            {/* Time gutter */}
-            <div style={{ width: TIME_W, flexShrink: 0 }}>
+
+        {/* Room-based day grid — scrolls vertically and horizontally */}
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }} ref={scrollRef}>
+          <div style={{ display: 'flex', minWidth: TIME_W + rooms.length * ROOM_W }}>
+
+            {/* Sticky time gutter */}
+            <div style={{ width: TIME_W, flexShrink: 0, position: 'sticky', left: 0, zIndex: 3, background: 'white' }}>
+              <div style={{ height: 36, borderBottom: '1px solid #e5e7eb' }} />
               {hours.map(h => (
                 <div key={h} style={{
                   height: ROW_H, boxSizing: 'border-box',
                   display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-                  paddingRight: 8, paddingTop: 4, fontSize: 11, color: '#64748b', fontWeight: 500,
+                  paddingRight: 6, paddingTop: 4, fontSize: 11, color: '#64748b', fontWeight: 500,
                   borderTop: HOUR_BORDER,
                 }}>{String(h).padStart(2, '0')}:00</div>
               ))}
             </div>
-            {mDay && renderDayColumn(mDay, mIsToday)}
+
+            {/* One column per room */}
+            {rooms.map((room, roomIdx) => {
+              const color = roomColor(roomIdx, room);
+              const roomEvts = room.events.filter(e => format(new Date(e.start), 'yyyy-MM-dd') === ds);
+              return (
+                <div key={room.id} style={{ width: ROOM_W, flexShrink: 0 }}>
+                  {/* Room header */}
+                  <div style={{
+                    height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: color, color: 'white',
+                    fontSize: 10, fontWeight: 700, textAlign: 'center',
+                    padding: '0 3px', direction: 'rtl',
+                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                    borderBottom: '1px solid rgba(255,255,255,0.25)',
+                    borderLeft: '1px solid rgba(0,0,0,0.08)',
+                  }}>
+                    {room.name}
+                  </div>
+                  {/* Hour slots + events */}
+                  <div style={{ position: 'relative' }}>
+                    {hours.map(h => (
+                      <div
+                        key={h}
+                        onClick={() => mDay && onSlotClick(room, mDay, h)}
+                        style={{
+                          height: ROW_H, boxSizing: 'border-box',
+                          borderTop: HOUR_BORDER, borderLeft: DAY_BORDER,
+                          cursor: 'pointer',
+                          backgroundImage: `linear-gradient(to bottom, transparent calc(50% - 1px), #f1f5f9 calc(50% - 1px), #f1f5f9 50%, transparent 50%)`,
+                          backgroundRepeat: 'no-repeat',
+                        }}
+                      />
+                    ))}
+                    {roomEvts.map(event => {
+                      const t = top(event.start);
+                      const h = height(event.start, event.end);
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={e => { e.stopPropagation(); onEventClick(event, room); }}
+                          title={event.summary}
+                          style={{
+                            position: 'absolute', top: t, height: h,
+                            left: 2, right: 2,
+                            background: color, color: 'white',
+                            borderRadius: 5, padding: '3px 4px',
+                            fontSize: 11, lineHeight: 1.25, cursor: 'pointer',
+                            overflow: 'hidden', boxSizing: 'border-box',
+                            zIndex: 5, boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                            direction: 'rtl',
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {event.summary}
+                          </div>
+                          {h > 30 && (
+                            <div style={{ fontSize: 10, opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                              {format(new Date(event.start), 'HH:mm')}–{format(new Date(event.end), 'HH:mm')}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
