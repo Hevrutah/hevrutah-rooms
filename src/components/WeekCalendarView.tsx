@@ -1,14 +1,44 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { format, addDays } from 'date-fns';
 import type { RoomCalendar, CalendarEvent } from '../types';
 import { HOURS_START, HOURS_END, ROOM_COLORS } from '../constants';
 
-const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-const DAY_BORDER = '1px solid #e5e7eb';
+const ROW_H     = 64;   // px per hour
+const TIME_W    = 52;   // time gutter width
+const MIN_DAY_W = 130;  // minimum px per day column
+const HE_DAYS   = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const HOUR_COUNT  = HOURS_END - HOURS_START;
+const DAY_BORDER  = '1px solid #e5e7eb';
+const HOUR_BORDER = '1px solid #e5e7eb';
 
-const CELL_H = 84;         // px height per day-row cell
-const DAY_LABEL_W = 72;    // px width of the day label column
-const DAY_RANGE = HOURS_END - HOURS_START;
+interface EventWithRoom { event: CalendarEvent; room: RoomCalendar; roomIdx: number }
+interface LayedOut      extends EventWithRoom  { col: number; totalCols: number }
+
+function layoutDay(events: EventWithRoom[]): LayedOut[] {
+  if (!events.length) return [];
+  const sorted = [...events].sort((a, b) => +new Date(a.event.start) - +new Date(b.event.start));
+  const colEnd: number[] = [];
+  const assigned: Array<EventWithRoom & { col: number }> = [];
+  for (const ev of sorted) {
+    const s = +new Date(ev.event.start), e = +new Date(ev.event.end);
+    let col = colEnd.findIndex(t => t <= s);
+    if (col === -1) { col = colEnd.length; colEnd.push(e); } else colEnd[col] = e;
+    assigned.push({ ...ev, col });
+  }
+  return assigned.map(item => {
+    const s = +new Date(item.event.start), e = +new Date(item.event.end);
+    const overlapping = assigned.filter(o => s < +new Date(o.event.end) && e > +new Date(o.event.start));
+    return { ...item, totalCols: Math.max(...overlapping.map(o => o.col)) + 1 };
+  });
+}
+
+function top(iso: string) {
+  const d = new Date(iso);
+  return Math.max(0, ((d.getHours() - HOURS_START) * 60 + d.getMinutes()) / 60 * ROW_H);
+}
+function eventHeight(s: string, e: string) {
+  return Math.max((+new Date(e) - +new Date(s)) / 60000 / 60 * ROW_H, 20);
+}
 
 interface Props {
   rooms: RoomCalendar[];
@@ -27,118 +57,155 @@ export const WeekCalendarView: React.FC<Props> = ({
     return ROOM_COLORS[(origIdx === -1 ? roomIdx : origIdx) % ROOM_COLORS.length];
   }
 
-  // Sun–Fri (skip Sat)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
+  const days     = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d.getDay() !== 6);
+  const hours    = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const totalMinW = TIME_W + days.length * MIN_DAY_W;
+
+  // Scroll to 08:00 on mount
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = (8 - HOURS_START) * ROW_H;
+  }, []);
+
+  function eventsForDay(day: Date): EventWithRoom[] {
+    const ds = format(day, 'yyyy-MM-dd');
+    const result: EventWithRoom[] = [];
+    rooms.forEach((room, roomIdx) => {
+      room.events.forEach(event => {
+        if (format(new Date(event.start), 'yyyy-MM-dd') === ds)
+          result.push({ event, room, roomIdx });
+      });
+    });
+    return result;
+  }
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }} ref={scrollRef}>
 
-      {/* ── Sticky header: room names as columns ── */}
+      {/* ── Sticky header: day names ── */}
       <div style={{
         display: 'flex', position: 'sticky', top: 0, zIndex: 10,
-        background: 'white', borderBottom: '2px solid #e5e7eb', minWidth: 400,
+        background: 'white', borderBottom: '1px solid #e5e7eb',
+        minWidth: totalMinW,
       }}>
-        <div style={{ width: DAY_LABEL_W, flexShrink: 0 }} /> {/* corner */}
-        {rooms.map((room, roomIdx) => {
-          const color = roomColor(roomIdx, room);
+        <div style={{ width: TIME_W, flexShrink: 0 }} />
+        {days.map((day, i) => {
+          const isToday = format(day, 'yyyy-MM-dd') === todayStr;
           return (
-            <div key={room.id} style={{
-              flex: 1, minWidth: 80,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '10px 4px',
-              background: color, color: 'white',
-              fontSize: 12, fontWeight: 700,
-              textAlign: 'center', direction: 'rtl',
-              borderLeft: '1px solid rgba(255,255,255,0.2)',
-              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+            <div key={i} style={{
+              flex: 1, minWidth: MIN_DAY_W,
+              textAlign: 'center', padding: '8px 4px 10px',
+              direction: 'rtl', borderLeft: DAY_BORDER,
             }}>
-              {room.name}
+              <div style={{ fontSize: 12, fontWeight: 500, color: isToday ? '#2563eb' : '#64748b' }}>
+                {HE_DAYS[day.getDay()]}
+              </div>
+              <div
+                onClick={() => onDayClick?.(day)}
+                title="עבור לתצוגה יומית"
+                style={{
+                  fontSize: 22, fontWeight: 600,
+                  width: 40, height: 40, margin: '4px auto 0',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? '#2563eb' : 'transparent',
+                  color: isToday ? 'white' : '#1e293b',
+                  cursor: onDayClick ? 'pointer' : 'default',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = '#dbeafe'; }}
+                onMouseLeave={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                {format(day, 'd')}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* ── Body: one row per day ── */}
-      <div style={{ minWidth: 400 }}>
-        {days.map((day) => {
+      {/* ── Body ── */}
+      <div style={{ display: 'flex', minWidth: totalMinW }}>
+
+        {/* Sticky time gutter */}
+        <div style={{
+          width: TIME_W, flexShrink: 0,
+          position: 'sticky', left: 0,
+          background: 'white', zIndex: 2,
+          borderRight: '1px solid #e5e7eb',
+        }}>
+          {hours.map(h => (
+            <div key={h} style={{
+              height: ROW_H, boxSizing: 'border-box',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+              paddingRight: 8, paddingTop: 4,
+              fontSize: 11, color: '#64748b', fontWeight: 500,
+              borderTop: HOUR_BORDER,
+            }}>
+              {String(h).padStart(2, '0')}:00
+            </div>
+          ))}
+        </div>
+
+        {/* Day columns */}
+        {days.map((day, dayIdx) => {
           const isToday = format(day, 'yyyy-MM-dd') === todayStr;
-          const ds = format(day, 'yyyy-MM-dd');
+          const laid    = layoutDay(eventsForDay(day));
           return (
-            <div key={ds} style={{ display: 'flex', borderBottom: DAY_BORDER }}>
+            <div key={dayIdx} style={{
+              flex: 1, minWidth: MIN_DAY_W,
+              position: 'relative',
+              background: isToday ? '#eff6ff' : 'white',
+              borderLeft: DAY_BORDER,
+            }}>
+              {/* Hour rows */}
+              {hours.map(h => (
+                <div
+                  key={h}
+                  onClick={() => onSlotClick(rooms[0] ?? { id: '', name: '', events: [] }, day, h)}
+                  style={{
+                    height: ROW_H, boxSizing: 'border-box',
+                    borderTop: HOUR_BORDER, cursor: 'pointer',
+                    backgroundImage: `linear-gradient(to bottom, transparent calc(50% - 1px), #f1f5f9 calc(50% - 1px), #f1f5f9 50%, transparent 50%)`,
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                />
+              ))}
 
-              {/* Day label */}
-              <div
-                onClick={() => onDayClick?.(day)}
-                title="עבור לתצוגה יומית"
-                style={{
-                  width: DAY_LABEL_W, flexShrink: 0,
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center', gap: 2,
-                  background: isToday ? '#eff6ff' : '#f8fafc',
-                  borderRight: '1px solid #e5e7eb',
-                  cursor: onDayClick ? 'pointer' : 'default',
-                  padding: '6px 0',
-                }}
-              >
-                <span style={{ fontSize: 11, fontWeight: 500, color: isToday ? '#2563eb' : '#64748b' }}>
-                  {HE_DAYS[day.getDay()]}
-                </span>
-                <span style={{
-                  width: 34, height: 34,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%',
-                  background: isToday ? '#2563eb' : 'transparent',
-                  color: isToday ? 'white' : '#1e293b',
-                  fontSize: 18, fontWeight: 700,
-                }}>
-                  {format(day, 'd')}
-                </span>
-              </div>
-
-              {/* Room cells */}
-              {rooms.map((room, roomIdx) => {
+              {/* Events */}
+              {laid.map(({ event, room, roomIdx, col, totalCols }) => {
                 const color = roomColor(roomIdx, room);
-                const dayEvts = room.events.filter(e => format(new Date(e.start), 'yyyy-MM-dd') === ds);
+                const t = top(event.start);
+                const h = eventHeight(event.start, event.end);
+                const w = `calc(${100 / totalCols}% - 4px)`;
+                const l = `calc(${(col / totalCols) * 100}% + 2px)`;
                 return (
                   <div
-                    key={room.id}
-                    onClick={() => onSlotClick(room, day, HOURS_START)}
+                    key={event.id}
+                    onClick={e => { e.stopPropagation(); onEventClick(event, room); }}
+                    title={`${event.summary} | ${room.name}`}
                     style={{
-                      flex: 1, minWidth: 80, height: CELL_H,
-                      borderLeft: DAY_BORDER, position: 'relative',
-                      background: isToday ? '#eff6ff' : 'white',
-                      cursor: 'pointer', overflow: 'hidden',
+                      position: 'absolute', top: t, height: h, left: l, width: w,
+                      background: color, color: 'white',
+                      borderRadius: 6, padding: '3px 6px',
+                      fontSize: 11, lineHeight: 1.3, cursor: 'pointer',
+                      overflow: 'hidden', boxSizing: 'border-box',
+                      zIndex: 5, boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
                     }}
                   >
-                    {dayEvts.map(event => {
-                      const startH = new Date(event.start).getHours() + new Date(event.start).getMinutes() / 60;
-                      const endH   = new Date(event.end).getHours()   + new Date(event.end).getMinutes()   / 60;
-                      const topPct = Math.max(0, (startH - HOURS_START) / DAY_RANGE * 100);
-                      const hPct   = Math.max(5, (endH - startH)        / DAY_RANGE * 100);
-                      return (
-                        <div
-                          key={event.id}
-                          onClick={e => { e.stopPropagation(); onEventClick(event, room); }}
-                          title={`${event.summary}  ${format(new Date(event.start), 'HH:mm')}–${format(new Date(event.end), 'HH:mm')}`}
-                          style={{
-                            position: 'absolute',
-                            top: `${topPct}%`, height: `${hPct}%`,
-                            left: 2, right: 2,
-                            background: color, color: 'white',
-                            borderRadius: 4, padding: '1px 4px',
-                            fontSize: 10, lineHeight: 1.3,
-                            overflow: 'hidden', cursor: 'pointer',
-                            whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                            direction: 'rtl', zIndex: 1,
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                          }}
-                        >
-                          {event.summary}
-                        </div>
-                      );
-                    })}
+                    <div style={{ fontWeight: 700, direction: 'rtl', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {event.summary}
+                    </div>
+                    {h > 32 && (
+                      <div style={{ fontSize: 10, opacity: 0.9, direction: 'rtl', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                        {room.name}
+                      </div>
+                    )}
+                    {h > 48 && (
+                      <div style={{ fontSize: 10, opacity: 0.8, direction: 'rtl', marginTop: 1 }}>
+                        {format(new Date(event.start), 'HH:mm')}–{format(new Date(event.end), 'HH:mm')}
+                      </div>
+                    )}
                   </div>
                 );
               })}
