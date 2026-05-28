@@ -319,23 +319,23 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
 
           {/* Therapist name field */}
           <div>
-            <label style={labelStyle}>שם המטפל</label>
+            <label style={labelStyle}>שם</label>
             {canManageAll ? (
-              <select
-                style={inputStyle}
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-              >
-                <option value="">— בחר מטפל —</option>
-                {/* Include current event name if not already in the fetched list */}
-                {name && !therapistNames.includes(name) && (
-                  <option key="__current__" value={name}>{name}</option>
-                )}
-                {therapistNames.map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
+              <>
+                <input
+                  type="text"
+                  list="therapist-suggestions"
+                  style={inputStyle}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="הקלד שם חופשי או בחר מהרשימה..."
+                  autoFocus
+                  autoComplete="off"
+                />
+                <datalist id="therapist-suggestions">
+                  {therapistNames.map(n => <option key={n} value={n} />)}
+                </datalist>
+              </>
             ) : myName ? (
               // Therapist: show their own name as locked text
               <input
