@@ -187,8 +187,8 @@ export const WeekCalendarView: React.FC<Props> = ({
                     style={{
                       position: 'absolute', top: t, height: h, left: l, width: w,
                       background: color, color: 'white',
-                      borderRadius: 6, padding: '3px 6px',
-                      fontSize: 11, lineHeight: 1.3, cursor: 'pointer',
+                      borderRadius: 4, padding: '2px 3px',
+                      fontSize: 9, lineHeight: 1.25, cursor: 'pointer',
                       overflow: 'hidden', boxSizing: 'border-box',
                       zIndex: 5, boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
                     }}
@@ -196,13 +196,13 @@ export const WeekCalendarView: React.FC<Props> = ({
                     <div style={{ fontWeight: 700, direction: 'rtl', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {event.summary}
                     </div>
-                    {h > 32 && (
-                      <div style={{ fontSize: 10, opacity: 0.9, direction: 'rtl', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                    {h > 28 && (
+                      <div style={{ fontSize: 9, opacity: 0.9, direction: 'rtl', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
                         {room.name}
                       </div>
                     )}
-                    {h > 48 && (
-                      <div style={{ fontSize: 10, opacity: 0.8, direction: 'rtl', marginTop: 1 }}>
+                    {h > 44 && (
+                      <div style={{ fontSize: 9, opacity: 0.8, direction: 'rtl', marginTop: 1 }}>
                         {format(new Date(event.start), 'HH:mm')}–{format(new Date(event.end), 'HH:mm')}
                       </div>
                     )}
