@@ -6,8 +6,8 @@ import { HOURS_START, HOURS_END, ROOM_COLORS } from '../constants';
 const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_BORDER = '1px solid #e5e7eb';
 
-const CELL_H = 84;          // px height per room-row cell
-const ROOM_LABEL_W = 110;   // px width of room label column
+const CELL_H = 84;         // px height per day-row cell
+const DAY_LABEL_W = 72;    // px width of the day label column
 const DAY_RANGE = HOURS_END - HOURS_START;
 
 interface Props {
@@ -35,76 +35,78 @@ export const WeekCalendarView: React.FC<Props> = ({
   return (
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }} ref={scrollRef}>
 
-      {/* ── Sticky header: day names ── */}
+      {/* ── Sticky header: room names as columns ── */}
       <div style={{
         display: 'flex', position: 'sticky', top: 0, zIndex: 10,
-        background: 'white', borderBottom: '1px solid #e5e7eb', minWidth: 500,
+        background: 'white', borderBottom: '2px solid #e5e7eb', minWidth: 400,
       }}>
-        <div style={{ width: ROOM_LABEL_W, flexShrink: 0 }} />
-        {days.map((day, i) => {
-          const isToday = format(day, 'yyyy-MM-dd') === todayStr;
+        <div style={{ width: DAY_LABEL_W, flexShrink: 0 }} /> {/* corner */}
+        {rooms.map((room, roomIdx) => {
+          const color = roomColor(roomIdx, room);
           return (
-            <div key={i} style={{
-              flex: 1, minWidth: 0,
-              textAlign: 'center', padding: '8px 2px 10px',
-              direction: 'rtl', borderLeft: DAY_BORDER,
+            <div key={room.id} style={{
+              flex: 1, minWidth: 80,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '10px 4px',
+              background: color, color: 'white',
+              fontSize: 12, fontWeight: 700,
+              textAlign: 'center', direction: 'rtl',
+              borderLeft: '1px solid rgba(255,255,255,0.2)',
+              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
             }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: isToday ? '#2563eb' : '#64748b', letterSpacing: 0.3 }}>
-                {HE_DAYS[day.getDay()]}
-              </div>
-              <div
-                onClick={() => onDayClick?.(day)}
-                title="עבור לתצוגה יומית"
-                style={{
-                  fontSize: 22, fontWeight: 500,
-                  width: 38, height: 38, margin: '4px auto 0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%',
-                  background: isToday ? '#2563eb' : 'transparent',
-                  color: isToday ? 'white' : '#1e293b',
-                  cursor: onDayClick ? 'pointer' : 'default',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = '#dbeafe'; }}
-                onMouseLeave={e => { if (!isToday) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                {format(day, 'd')}
-              </div>
+              {room.name}
             </div>
           );
         })}
       </div>
 
-      {/* ── Body: one row per room ── */}
-      <div style={{ minWidth: 500 }}>
-        {rooms.map((room, roomIdx) => {
-          const color = roomColor(roomIdx, room);
+      {/* ── Body: one row per day ── */}
+      <div style={{ minWidth: 400 }}>
+        {days.map((day) => {
+          const isToday = format(day, 'yyyy-MM-dd') === todayStr;
+          const ds = format(day, 'yyyy-MM-dd');
           return (
-            <div key={room.id} style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
+            <div key={ds} style={{ display: 'flex', borderBottom: DAY_BORDER }}>
 
-              {/* Room label */}
-              <div style={{
-                width: ROOM_LABEL_W, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-                paddingRight: 10, paddingLeft: 4,
-                fontSize: 12, fontWeight: 700, color: 'white',
-                background: color, direction: 'rtl',
-                borderRight: '2px solid rgba(0,0,0,0.1)',
-              }}>
-                {room.name}
+              {/* Day label */}
+              <div
+                onClick={() => onDayClick?.(day)}
+                title="עבור לתצוגה יומית"
+                style={{
+                  width: DAY_LABEL_W, flexShrink: 0,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 2,
+                  background: isToday ? '#eff6ff' : '#f8fafc',
+                  borderRight: '1px solid #e5e7eb',
+                  cursor: onDayClick ? 'pointer' : 'default',
+                  padding: '6px 0',
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 500, color: isToday ? '#2563eb' : '#64748b' }}>
+                  {HE_DAYS[day.getDay()]}
+                </span>
+                <span style={{
+                  width: 34, height: 34,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? '#2563eb' : 'transparent',
+                  color: isToday ? 'white' : '#1e293b',
+                  fontSize: 18, fontWeight: 700,
+                }}>
+                  {format(day, 'd')}
+                </span>
               </div>
 
-              {/* Day cells — mini proportional event bars */}
-              {days.map((day, dayIdx) => {
-                const isToday = format(day, 'yyyy-MM-dd') === todayStr;
-                const ds = format(day, 'yyyy-MM-dd');
+              {/* Room cells */}
+              {rooms.map((room, roomIdx) => {
+                const color = roomColor(roomIdx, room);
                 const dayEvts = room.events.filter(e => format(new Date(e.start), 'yyyy-MM-dd') === ds);
                 return (
                   <div
-                    key={dayIdx}
+                    key={room.id}
                     onClick={() => onSlotClick(room, day, HOURS_START)}
                     style={{
-                      flex: 1, minWidth: 0, height: CELL_H,
+                      flex: 1, minWidth: 80, height: CELL_H,
                       borderLeft: DAY_BORDER, position: 'relative',
                       background: isToday ? '#eff6ff' : 'white',
                       cursor: 'pointer', overflow: 'hidden',
