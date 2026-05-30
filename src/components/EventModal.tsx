@@ -7,7 +7,6 @@ import {
   deleteRoomEvent,
   deleteRoomEventSeries,
   deleteRoomEventAndFollowing,
-  getTenants,
   type RecurringOptions,
 } from '../roomsApi';
 import type { Tenant } from '../types';
@@ -65,7 +64,6 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   // Both fetched from portal API (shared JWT_SECRET ensures the token is valid there too)
   useEffect(() => {
     if (!state || !user.canManageCalendar) return;
-    const headers = { Authorization: `Bearer ${jwt}` };
     fetch('https://hevrutah-portal.vercel.app/api/users/therapists')
       .then(r => r.json())
       .then((names: string[]) => setTherapistNames(names))
