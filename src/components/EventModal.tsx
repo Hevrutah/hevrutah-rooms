@@ -62,14 +62,17 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
   // Fetch therapist list + tenants every time the modal opens
+  // Both fetched from portal API (shared JWT_SECRET ensures the token is valid there too)
   useEffect(() => {
     if (!state || !user.canManageCalendar) return;
+    const headers = { Authorization: `Bearer ${jwt}` };
     fetch('https://hevrutah-portal.vercel.app/api/users/therapists')
       .then(r => r.json())
       .then((names: string[]) => setTherapistNames(names))
       .catch(() => {});
-    getTenants(jwt)
-      .then(setTenants)
+    fetch('https://hevrutah-portal.vercel.app/api/users?_action=tenants', { headers })
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Tenant[]) => setTenants(data))
       .catch(() => {});
   }, [state, user.canManageCalendar]);
 
