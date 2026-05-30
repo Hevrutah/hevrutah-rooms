@@ -60,19 +60,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
-
-  // ── Tenant CRUD ──────────────────────────────────────────────────────────
+  // ── Tenant list — public (names only, no auth required) ──────────────────
   const action = (req.query._action as string) || '';
 
   if (action === 'tenants' && req.method === 'GET') {
-    // Proxy to portal API (server-to-server, no CORS) so browser stays on same origin
+    // Proxy to portal Redis (server-to-server, no CORS) — public read
     try {
       const r = await fetch('https://hevrutah-portal.vercel.app/api/users?_action=tenants');
       const data = r.ok ? await r.json() : [];
       return res.json(data);
     } catch { return res.json([]); }
   }
+
+  if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
     try {
