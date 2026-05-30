@@ -8,6 +8,13 @@ export interface CalendarEvent {
   isRecurring: boolean;
   recurringEventId?: string;
   creatorEmail?: string;
+  tenantId?: string | null;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  createdAt: string;
 }
 
 export type UserRole = 'admin' | 'hevrutah' | 'external';

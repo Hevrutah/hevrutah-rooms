@@ -7,8 +7,10 @@ import {
   deleteRoomEvent,
   deleteRoomEventSeries,
   deleteRoomEventAndFollowing,
+  getTenants,
   type RecurringOptions,
 } from '../roomsApi';
+import type { Tenant } from '../types';
 
 // 30-minute time slots from 07:00 to 22:00
 const TIME_SLOTS: string[] = [];
@@ -56,6 +58,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [updateDialog, setUpdateDialog] = useState(false);
   const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [bookingType, setBookingType] = useState<'therapist' | 'tenant'>('therapist');
+  const [selectedTenantId, setSelectedTenantId] = useState('');
 
   // Fetch therapist list from portal (canRooms therapists, by their short name)
   useEffect(() => {
@@ -63,6 +68,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
     fetch('https://hevrutah-portal.vercel.app/api/users/therapists')
       .then(r => r.json())
       .then((names: string[]) => setTherapistNames(names))
+      .catch(() => {});
+    getTenants(jwt)
+      .then(setTenants)
       .catch(() => {});
   }, [user.canManageCalendar]);
 
@@ -74,6 +82,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
     setDeleteDialog(false);
     setUpdateDialog(false);
     setPendingSave(null);
+    setBookingType('therapist');
+    setSelectedTenantId('');
 
     const pad = (n: number) => String(n).padStart(2, '0');
     if (state.mode === 'edit') {
@@ -144,7 +154,17 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const canDelete = isEdit && (canManageAll || isMyEvent);
 
   async function handleSave() {
-    if (!name.trim()) { setError('יש להזין שם מטפל'); return; }
+    // Determine effective name
+    let effectiveName = name.trim();
+    let effectiveTenantId: string | null = null;
+    if (!isEdit && bookingType === 'tenant') {
+      const tenant = tenants.find(t => t.id === selectedTenantId);
+      if (!tenant) { setError('יש לבחור שוכר'); return; }
+      effectiveName = tenant.name;
+      effectiveTenantId = tenant.id;
+    } else {
+      if (!effectiveName) { setError('יש להזין שם'); return; }
+    }
     if (!selectedRoomId && !isEdit) { setError('יש לבחור חדר'); return; }
     const startISO = new Date(`${dateVal}T${startTime}`).toISOString();
     const endISO   = new Date(`${dateVal}T${endTime}`).toISOString();
@@ -152,15 +172,15 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
 
     // If editing a recurring event — ask user which occurrences to update
     if (isEdit && isRecurringEvent) {
-      setPendingSave({ name: name.trim(), startISO, endISO });
+      setPendingSave({ name: effectiveName, startISO, endISO });
       setUpdateDialog(true);
       return;
     }
 
-    await doSave(name.trim(), startISO, endISO, 'single');
+    await doSave(effectiveName, startISO, endISO, 'single', effectiveTenantId);
   }
 
-  async function doSave(saveName: string, startISO: string, endISO: string, mode: 'single' | 'series') {
+  async function doSave(saveName: string, startISO: string, endISO: string, mode: 'single' | 'series', tenantId?: string | null) {
     setSaving(true);
     setError(null);
     setUpdateDialog(false);
@@ -176,7 +196,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
         const recurringOptions: RecurringOptions = recurring
           ? { freq: recurringFreq, until: recurringNoEnd ? undefined : (recurringUntil || undefined) }
           : null;
-        await createRoomEvent(jwt, roomId, saveName, startISO, endISO, recurringOptions);
+        await createRoomEvent(jwt, roomId, saveName, startISO, endISO, recurringOptions, tenantId);
       }
       onSaved();
       onClose();
@@ -317,10 +337,40 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
             )}
           </div>
 
-          {/* Therapist name field */}
+          {/* Booking type toggle — admin only, create mode only */}
+          {canManageAll && !isEdit && tenants.length > 0 && (
+            <div style={{ display: 'flex', gap: 0, border: '1px solid #d1d5db', borderRadius: 7, overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => setBookingType('therapist')}
+                style={{ flex: 1, padding: '7px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: bookingType === 'therapist' ? '#2563eb' : '#f8fafc', color: bookingType === 'therapist' ? 'white' : '#64748b', transition: 'all 0.15s' }}
+              >
+                👩‍⚕️ מטפל
+              </button>
+              <button
+                type="button"
+                onClick={() => setBookingType('tenant')}
+                style={{ flex: 1, padding: '7px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: bookingType === 'tenant' ? '#0369a1' : '#f8fafc', color: bookingType === 'tenant' ? 'white' : '#64748b', transition: 'all 0.15s' }}
+              >
+                🏢 שוכר
+              </button>
+            </div>
+          )}
+
+          {/* Therapist/tenant name field */}
           <div>
-            <label style={labelStyle}>שם</label>
-            {canManageAll ? (
+            <label style={labelStyle}>{bookingType === 'tenant' ? 'שוכר' : 'שם'}</label>
+            {canManageAll && !isEdit && bookingType === 'tenant' ? (
+              <select
+                style={inputStyle}
+                value={selectedTenantId}
+                onChange={e => setSelectedTenantId(e.target.value)}
+                autoFocus
+              >
+                <option value="">— בחר שוכר —</option>
+                {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) : canManageAll ? (
               <>
                 <input
                   type="text"
@@ -337,15 +387,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
                 </datalist>
               </>
             ) : myName ? (
-              // Therapist: show their own name as locked text
-              <input
-                style={disabledInputStyle}
-                value={myName}
-                disabled
-                readOnly
-              />
+              <input style={disabledInputStyle} value={myName} disabled readOnly />
             ) : (
-              // Therapist account has no therapistName configured
               <div style={{ padding: '8px 10px', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 6, fontSize: 13, color: '#92400e' }}>
                 חשבונך אינו מקושר לשם מטפל. פנה למנהל המערכת.
               </div>
@@ -488,14 +531,14 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <button
-                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'single')}
+                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'single', null)}
                 disabled={saving}
                 style={{ padding: '8px 12px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right' }}
               >
                 עדכן רק פגישה זו
               </button>
               <button
-                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'series')}
+                onClick={() => doSave(pendingSave.name, pendingSave.startISO, pendingSave.endISO, 'series', null)}
                 disabled={saving}
                 style={{ padding: '8px 12px', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right' }}
               >

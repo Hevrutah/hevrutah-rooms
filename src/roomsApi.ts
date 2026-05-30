@@ -1,4 +1,4 @@
-import type { RoomCalendar } from './types';
+import type { RoomCalendar, Tenant } from './types';
 import { ROOM_CALENDARS } from './constants';
 
 export type RecurringOptions = {
@@ -62,11 +62,41 @@ export async function createRoomEvent(
   summary: string,
   start: string,
   end: string,
-  recurring: RecurringOptions = null
+  recurring: RecurringOptions = null,
+  tenantId?: string | null
 ): Promise<void> {
   await apiFetch(jwt, '/api/rooms', {
     method: 'POST',
-    body: JSON.stringify({ summary, start, end, calendarId, roomName: calendarId, recurring }),
+    body: JSON.stringify({ summary, start, end, calendarId, roomName: calendarId, recurring, tenantId: tenantId ?? null }),
+  });
+}
+
+// ── Tenants ────────────────────────────────────────────────────────────────
+
+export async function getTenants(jwt: string): Promise<Tenant[]> {
+  const res = await apiFetch(jwt, '/api/rooms?_action=tenants');
+  return res.json();
+}
+
+export async function createTenant(jwt: string, name: string): Promise<Tenant> {
+  const res = await apiFetch(jwt, '/api/rooms?_action=tenants', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+  return res.json();
+}
+
+export async function updateTenant(jwt: string, id: string, name: string): Promise<void> {
+  await apiFetch(jwt, '/api/rooms?_action=tenants', {
+    method: 'PATCH',
+    body: JSON.stringify({ id, name }),
+  });
+}
+
+export async function deleteTenant(jwt: string, id: string): Promise<void> {
+  await apiFetch(jwt, '/api/rooms?_action=tenants', {
+    method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 

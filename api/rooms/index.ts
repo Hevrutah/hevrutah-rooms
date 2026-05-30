@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
-import { getRoomEvents, saveRoomEvents } from '../lib/rooms-db.js';
-import type { RoomEvent } from '../lib/rooms-db.js';
+import { getRoomEvents, saveRoomEvents, getTenants, saveTenants } from '../lib/rooms-db.js';
+import type { RoomEvent, Tenant } from '../lib/rooms-db.js';
 import { setCorsHeaders } from '../lib/cors.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -62,6 +62,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
 
+  // ── Tenant CRUD ──────────────────────────────────────────────────────────
+  const action = (req.query._action as string) || '';
+
+  if (action === 'tenants') {
+    if (req.method === 'GET') {
+      return res.json(await getTenants());
+    }
+    if (req.method === 'POST') {
+      const { name } = req.body || {};
+      if (!name?.trim()) return res.status(400).json({ error: 'חסר שם שוכר' });
+      const tenants = await getTenants();
+      const newTenant: Tenant = { id: generateId(), name: name.trim(), createdAt: new Date().toISOString() };
+      await saveTenants([...tenants, newTenant]);
+      return res.status(201).json(newTenant);
+    }
+    if (req.method === 'PATCH') {
+      const { id, name } = req.body || {};
+      if (!id || !name?.trim()) return res.status(400).json({ error: 'חסר ID או שם' });
+      const tenants = await getTenants();
+      const updated = tenants.map(t => t.id === id ? { ...t, name: name.trim() } : t);
+      await saveTenants(updated);
+      return res.json({ ok: true });
+    }
+    if (req.method === 'DELETE') {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: 'חסר ID' });
+      await saveTenants((await getTenants()).filter(t => t.id !== id));
+      return res.json({ ok: true });
+    }
+    return res.status(405).end();
+  }
+
   if (req.method === 'GET') {
     try {
       const { timeMin, timeMax } = req.query as { timeMin?: string; timeMax?: string };
@@ -76,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === 'POST') {
-    const { summary, start, end, calendarId, roomName, recurring } = req.body || {};
+    const { summary, start, end, calendarId, roomName, recurring, tenantId } = req.body || {};
     if (!summary || !start || !end || !calendarId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -89,7 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         d.setFullYear(d.getFullYear() + 3); // no end date → expand 3 years forward
         return d.toISOString().slice(0, 10);
       })();
-      events.push(...expandRecurring(summary, start, end, calendarId, roomName || calendarId, recurring.freq, until));
+      const expanded = expandRecurring(summary, start, end, calendarId, roomName || calendarId, recurring.freq, until);
+      if (tenantId) expanded.forEach(e => { e.tenantId = tenantId; });
+      events.push(...expanded);
     } else {
       events.push({
         id: generateId(),
@@ -99,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         calendarId,
         roomName: roomName || calendarId,
         isRecurring: false,
+        tenantId: tenantId || null,
       });
     }
 

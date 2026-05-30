@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { UserInfo } from '../types';
+import type { UserInfo, Tenant, CalendarEvent } from '../types';
+import { getTenants, createTenant, updateTenant, deleteTenant, fetchRoomEvents } from '../roomsApi';
 
 interface AppUser {
   id: string;
@@ -30,7 +31,331 @@ const inputStyle: React.CSSProperties = {
   direction: 'rtl', boxSizing: 'border-box',
 };
 
+type AdminTab = 'users' | 'tenants' | 'report';
+
 export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
+  const [tab, setTab] = useState<AdminTab>('users');
+
+  const tabBtn = (t: AdminTab, label: string) => (
+    <button onClick={() => setTab(t)} style={{
+      background: 'none', border: 'none', cursor: 'pointer',
+      padding: '8px 18px', fontSize: 14, fontWeight: 600,
+      color: tab === t ? '#1e3a5f' : '#94a3b8',
+      borderBottom: '2px solid ' + (tab === t ? '#2563eb' : 'transparent'),
+      fontFamily: 'inherit', marginBottom: -1,
+    }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc', direction: 'rtl', fontFamily: "'Segoe UI', 'Arial', sans-serif" }}>
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(90deg, #1e3a5f 0%, #2563eb 100%)', color: 'white', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 20 }}>⚙️</span>
+        <span style={{ fontWeight: 800, fontSize: 18 }}>ניהול</span>
+        <button onClick={onClose} style={{ marginRight: 'auto', padding: '6px 16px', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+          ← חזרה ללוח
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ borderBottom: '1px solid #e2e8f0', padding: '0 24px', background: 'white', display: 'flex', gap: 4 }}>
+        {tabBtn('users', '👥 משתמשים')}
+        {tabBtn('tenants', '🏢 שוכרים')}
+        {tabBtn('report', '📊 דוח שוכרים')}
+      </div>
+
+      <div style={{ padding: '24px 28px', maxWidth: 780 }}>
+        {tab === 'users' && <UsersTab jwt={jwt} user={user} />}
+        {tab === 'tenants' && <TenantsTab jwt={jwt} />}
+        {tab === 'report' && <TenantReportTab jwt={jwt} />}
+      </div>
+    </div>
+  );
+};
+
+// ── Tenants Tab ───────────────────────────────────────────────────────────────
+
+const TenantsTab: React.FC<{ jwt: string }> = ({ jwt }) => {
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  async function load() {
+    setLoading(true);
+    try { setTenants(await getTenants(jwt)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'שגיאה'); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setAdding(true);
+    try {
+      const t = await createTenant(jwt, newName.trim());
+      setTenants(prev => [...prev, t]);
+      setNewName('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'שגיאה'); }
+    finally { setAdding(false); }
+  }
+
+  async function handleUpdate(id: string) {
+    if (!editName.trim()) return;
+    try {
+      await updateTenant(jwt, id, editName.trim());
+      setTenants(prev => prev.map(t => t.id === id ? { ...t, name: editName.trim() } : t));
+      setEditId(null);
+    } catch (e) { setError(e instanceof Error ? e.message : 'שגיאה'); }
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`למחוק את השוכר "${name}"?`)) return;
+    try {
+      await deleteTenant(jwt, id);
+      setTenants(prev => prev.filter(t => t.id !== id));
+    } catch (e) { setError(e instanceof Error ? e.message : 'שגיאה'); }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>שוכרים ({tenants.length})</h2>
+      </div>
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: 7, marginBottom: 14, fontSize: 13 }}>
+          {error}<button onClick={() => setError(null)} style={{ float: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}>✕</button>
+        </div>
+      )}
+
+      {/* Add form */}
+      <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <input
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          placeholder="שם השוכר..."
+          style={{ ...inputStyle, flex: 1 }}
+          required
+        />
+        <button type="submit" disabled={adding || !newName.trim()} style={{ padding: '8px 18px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+          + הוסף
+        </button>
+      </form>
+
+      {loading ? (
+        <div style={{ color: '#94a3b8', textAlign: 'center', padding: 24 }}>טוען...</div>
+      ) : tenants.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 14 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🏢</div>
+          עדיין אין שוכרים — הוסף את הראשון למעלה
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {tenants.map(t => (
+            <div key={t.id} style={{ background: 'white', borderRadius: 8, padding: '12px 16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f0f9ff', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+                🏢
+              </div>
+              {editId === t.id ? (
+                <>
+                  <input value={editName} onChange={e => setEditName(e.target.value)} style={{ ...inputStyle, flex: 1 }} autoFocus />
+                  <button onClick={() => void handleUpdate(t.id)} style={{ padding: '5px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>שמור</button>
+                  <button onClick={() => setEditId(null)} style={{ padding: '5px 12px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>ביטול</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ flex: 1, fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.name}</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { setEditId(t.id); setEditName(t.name); }} style={{ padding: '5px 12px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>✏️ ערוך</button>
+                    <button onClick={() => void handleDelete(t.id, t.name)} style={{ padding: '5px 12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>מחק</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Tenant Report Tab ─────────────────────────────────────────────────────────
+
+const TenantReportTab: React.FC<{ jwt: string }> = ({ jwt }) => {
+  const now = new Date();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState('');
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const MONTH_NAMES = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
+  useEffect(() => {
+    getTenants(jwt).then(setTenants).catch(() => {});
+  }, []);
+
+  async function generateReport() {
+    if (!selectedTenantId) { setError('יש לבחור שוכר'); return; }
+    setLoading(true); setError(null);
+    try {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59);
+      const rooms = await fetchRoomEvents(jwt, start, end);
+      const allEvents: CalendarEvent[] = rooms.flatMap(r => r.events);
+      setEvents(allEvents.filter(e => e.tenantId === selectedTenantId));
+    } catch (e) { setError(e instanceof Error ? e.message : 'שגיאה'); }
+    finally { setLoading(false); }
+  }
+
+  // Summary calculations
+  const byRoom: Record<string, { count: number; hours: number }> = {};
+  let totalHours = 0;
+  for (const e of events) {
+    const h = (new Date(e.end).getTime() - new Date(e.start).getTime()) / 3_600_000;
+    byRoom[e.roomName] = byRoom[e.roomName] ?? { count: 0, hours: 0 };
+    byRoom[e.roomName].count++;
+    byRoom[e.roomName].hours += h;
+    totalHours += h;
+  }
+
+  const selectedTenant = tenants.find(t => t.id === selectedTenantId);
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 20px', fontSize: 17, fontWeight: 700, color: '#1e293b' }}>דוח שימוש חודשי — שוכרים</h2>
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: 7, marginBottom: 14, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>שוכר</label>
+          <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} style={{ ...inputStyle, width: 180 }}>
+            <option value="">— בחר שוכר —</option>
+            {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>חודש</label>
+          <select value={month} onChange={e => setMonth(Number(e.target.value))} style={{ ...inputStyle, width: 130 }}>
+            {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 3 }}>שנה</label>
+          <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 100 }}>
+            {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button onClick={() => void generateReport()} disabled={loading} style={{ padding: '9px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-end' }}>
+          {loading ? 'טוען...' : 'הצג דוח'}
+        </button>
+      </div>
+
+      {/* Results */}
+      {events.length > 0 && selectedTenant && (
+        <div>
+          {/* Summary cards */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div style={{ background: '#eff6ff', borderRadius: 10, padding: '14px 20px', minWidth: 140, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8' }}>{events.length}</div>
+              <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>הזמנות</div>
+            </div>
+            <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 20px', minWidth: 140, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{totalHours.toFixed(1)}</div>
+              <div style={{ fontSize: 12, color: '#22c55e', marginTop: 2 }}>שעות סה״כ</div>
+            </div>
+            <div style={{ background: '#fff7ed', borderRadius: 10, padding: '14px 20px', minWidth: 140, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#c2410c' }}>{Object.keys(byRoom).length}</div>
+              <div style={{ fontSize: 12, color: '#f97316', marginTop: 2 }}>חדרים שונים</div>
+            </div>
+          </div>
+
+          {/* Per-room summary */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>שימוש לפי חדר</h3>
+          <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#64748b' }}>חדר</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#64748b' }}>הזמנות</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#64748b' }}>שעות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(byRoom).map(([room, s], i) => (
+                  <tr key={room} style={{ borderBottom: i < Object.keys(byRoom).length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 600, color: '#1e293b', fontSize: 13 }}>{room}</td>
+                    <td style={{ padding: '10px 16px', textAlign: 'center', fontSize: 13 }}>{s.count}</td>
+                    <td style={{ padding: '10px 16px', textAlign: 'center', fontSize: 13 }}>{s.hours.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Detailed events */}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>פירוט הזמנות — {MONTH_NAMES[month - 1]} {year}</h3>
+          <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#64748b' }}>תאריך</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#64748b' }}>חדר</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#64748b' }}>שעות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...events]
+                  .sort((a, b) => a.start.localeCompare(b.start))
+                  .map((e, i) => {
+                    const s = new Date(e.start);
+                    const h = (new Date(e.end).getTime() - new Date(e.start).getTime()) / 3_600_000;
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const dateStr = `${pad(s.getDate())}/${pad(s.getMonth() + 1)}`;
+                    const timeStr = `${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(new Date(e.end).getHours())}:${pad(new Date(e.end).getMinutes())}`;
+                    return (
+                      <tr key={e.id} style={{ borderBottom: i < events.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                        <td style={{ padding: '9px 16px', fontSize: 13, color: '#374151' }}>{dateStr} · {timeStr}</td>
+                        <td style={{ padding: '9px 16px', fontSize: 13, color: '#374151' }}>{e.roomName}</td>
+                        <td style={{ padding: '9px 16px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{h.toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && events.length === 0 && selectedTenantId && (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 14 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+          לא נמצאו הזמנות לשוכר זה בחודש {MONTH_NAMES[month - 1]} {year}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Users Tab (extracted from original AdminPage) ─────────────────────────────
+
+const UsersTab: React.FC<{ jwt: string; user: UserInfo }> = ({ jwt, user }) => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,17 +490,7 @@ const [showPasswordChange, setShowPasswordChange] = useState(false);
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', direction: 'rtl', fontFamily: "'Segoe UI', 'Arial', sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(90deg, #1e3a5f 0%, #2563eb 100%)', color: 'white', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 20 }}>⚙️</span>
-        <span style={{ fontWeight: 800, fontSize: 18 }}>ניהול משתמשים</span>
-        <button onClick={onClose} style={{ marginRight: 'auto', padding: '6px 16px', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-          ← חזרה ללוח
-        </button>
-      </div>
-
-      <div style={{ padding: '24px 28px', maxWidth: 720 }}>
+    <div>
         {error && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: 7, marginBottom: 16, fontSize: 13 }}>
             {error}
