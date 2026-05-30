@@ -61,9 +61,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
-  // Fetch therapist list from portal (canRooms therapists, by their short name)
+  // Fetch therapist list + tenants every time the modal opens
   useEffect(() => {
-    if (!user.canManageCalendar) return;
+    if (!state || !user.canManageCalendar) return;
     fetch('https://hevrutah-portal.vercel.app/api/users/therapists')
       .then(r => r.json())
       .then((names: string[]) => setTherapistNames(names))
@@ -71,7 +71,7 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
     getTenants(jwt)
       .then(setTenants)
       .catch(() => {});
-  }, [user.canManageCalendar]);
+  }, [state, user.canManageCalendar]);
 
   useEffect(() => {
     if (!state) return;
