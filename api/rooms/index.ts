@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
-import { getRoomEvents, saveRoomEvents, getTenants } from '../lib/rooms-db.js';
+import { getRoomEvents, saveRoomEvents } from '../lib/rooms-db.js';
 import type { RoomEvent } from '../lib/rooms-db.js';
 import { setCorsHeaders } from '../lib/cors.js';
 
