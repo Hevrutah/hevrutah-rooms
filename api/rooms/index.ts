@@ -66,7 +66,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = (req.query._action as string) || '';
 
   if (action === 'tenants' && req.method === 'GET') {
-    return res.json(await getTenants());
+    // Proxy to portal API (server-to-server, no CORS) so browser stays on same origin
+    try {
+      const r = await fetch('https://hevrutah-portal.vercel.app/api/users?_action=tenants');
+      const data = r.ok ? await r.json() : [];
+      return res.json(data);
+    } catch { return res.json([]); }
   }
 
   if (req.method === 'GET') {
