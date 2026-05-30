@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
-import { getRoomEvents, saveRoomEvents, getTenants, saveTenants } from '../lib/rooms-db.js';
-import type { RoomEvent, Tenant } from '../lib/rooms-db.js';
+import { getRoomEvents, saveRoomEvents, getTenants } from '../lib/rooms-db.js';
+import type { RoomEvent } from '../lib/rooms-db.js';
 import { setCorsHeaders } from '../lib/cors.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -65,33 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── Tenant CRUD ──────────────────────────────────────────────────────────
   const action = (req.query._action as string) || '';
 
-  if (action === 'tenants') {
-    if (req.method === 'GET') {
-      return res.json(await getTenants());
-    }
-    if (req.method === 'POST') {
-      const { name } = req.body || {};
-      if (!name?.trim()) return res.status(400).json({ error: 'חסר שם שוכר' });
-      const tenants = await getTenants();
-      const newTenant: Tenant = { id: generateId(), name: name.trim(), createdAt: new Date().toISOString() };
-      await saveTenants([...tenants, newTenant]);
-      return res.status(201).json(newTenant);
-    }
-    if (req.method === 'PATCH') {
-      const { id, name } = req.body || {};
-      if (!id || !name?.trim()) return res.status(400).json({ error: 'חסר ID או שם' });
-      const tenants = await getTenants();
-      const updated = tenants.map(t => t.id === id ? { ...t, name: name.trim() } : t);
-      await saveTenants(updated);
-      return res.json({ ok: true });
-    }
-    if (req.method === 'DELETE') {
-      const { id } = req.body || {};
-      if (!id) return res.status(400).json({ error: 'חסר ID' });
-      await saveTenants((await getTenants()).filter(t => t.id !== id));
-      return res.json({ ok: true });
-    }
-    return res.status(405).end();
+  if (action === 'tenants' && req.method === 'GET') {
+    return res.json(await getTenants());
   }
 
   if (req.method === 'GET') {

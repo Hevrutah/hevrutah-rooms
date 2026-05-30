@@ -78,28 +78,6 @@ export async function getTenants(jwt: string): Promise<Tenant[]> {
   return res.json();
 }
 
-export async function createTenant(jwt: string, name: string): Promise<Tenant> {
-  const res = await apiFetch(jwt, '/api/rooms?_action=tenants', {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  });
-  return res.json();
-}
-
-export async function updateTenant(jwt: string, id: string, name: string): Promise<void> {
-  await apiFetch(jwt, '/api/rooms?_action=tenants', {
-    method: 'PATCH',
-    body: JSON.stringify({ id, name }),
-  });
-}
-
-export async function deleteTenant(jwt: string, id: string): Promise<void> {
-  await apiFetch(jwt, '/api/rooms?_action=tenants', {
-    method: 'DELETE',
-    body: JSON.stringify({ id }),
-  });
-}
-
 // ── Update single event ──────────────────────────────────────────
 
 export async function updateRoomEvent(
