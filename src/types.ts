@@ -14,6 +14,8 @@ export interface CalendarEvent {
 export interface Tenant {
   id: string;
   name: string;
+  email?: string | null;
+  phone?: string | null;
   createdAt: string;
 }
 

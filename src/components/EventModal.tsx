@@ -59,7 +59,6 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const [pendingSave, setPendingSave] = useState<{ name: string; startISO: string; endISO: string } | null>(null);
   const [therapistNames, setTherapistNames] = useState<string[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [bookingType, setBookingType] = useState<'therapist' | 'tenant'>('therapist');
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
   // Fetch therapist list from portal (canRooms therapists, by their short name)
@@ -82,7 +81,6 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
     setDeleteDialog(false);
     setUpdateDialog(false);
     setPendingSave(null);
-    setBookingType('therapist');
     setSelectedTenantId('');
 
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -154,17 +152,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const canDelete = isEdit && (canManageAll || isMyEvent);
 
   async function handleSave() {
-    // Determine effective name
-    let effectiveName = name.trim();
-    let effectiveTenantId: string | null = null;
-    if (!isEdit && bookingType === 'tenant') {
-      const tenant = tenants.find(t => t.id === selectedTenantId);
-      if (!tenant) { setError('יש לבחור שוכר'); return; }
-      effectiveName = tenant.name;
-      effectiveTenantId = tenant.id;
-    } else {
-      if (!effectiveName) { setError('יש להזין שם'); return; }
-    }
+    const effectiveName = name.trim();
+    const effectiveTenantId: string | null = selectedTenantId || null;
+    if (!effectiveName) { setError('יש להזין שם'); return; }
     if (!selectedRoomId && !isEdit) { setError('יש לבחור חדר'); return; }
     const startISO = new Date(`${dateVal}T${startTime}`).toISOString();
     const endISO   = new Date(`${dateVal}T${endTime}`).toISOString();
@@ -337,54 +327,33 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
             )}
           </div>
 
-          {/* Booking type toggle — admin only, create mode only */}
-          {canManageAll && !isEdit && tenants.length > 0 && (
-            <div style={{ display: 'flex', gap: 0, border: '1px solid #d1d5db', borderRadius: 7, overflow: 'hidden' }}>
-              <button
-                type="button"
-                onClick={() => setBookingType('therapist')}
-                style={{ flex: 1, padding: '7px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: bookingType === 'therapist' ? '#2563eb' : '#f8fafc', color: bookingType === 'therapist' ? 'white' : '#64748b', transition: 'all 0.15s' }}
-              >
-                👩‍⚕️ מטפל
-              </button>
-              <button
-                type="button"
-                onClick={() => setBookingType('tenant')}
-                style={{ flex: 1, padding: '7px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: bookingType === 'tenant' ? '#0369a1' : '#f8fafc', color: bookingType === 'tenant' ? 'white' : '#64748b', transition: 'all 0.15s' }}
-              >
-                🏢 שוכר
-              </button>
-            </div>
-          )}
-
-          {/* Therapist/tenant name field */}
+          {/* Name field — therapists + tenants in one datalist */}
           <div>
-            <label style={labelStyle}>{bookingType === 'tenant' ? 'שוכר' : 'שם'}</label>
-            {canManageAll && !isEdit && bookingType === 'tenant' ? (
-              <select
-                style={inputStyle}
-                value={selectedTenantId}
-                onChange={e => setSelectedTenantId(e.target.value)}
-                autoFocus
-              >
-                <option value="">— בחר שוכר —</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            ) : canManageAll ? (
+            <label style={labelStyle}>שם</label>
+            {canManageAll ? (
               <>
                 <input
                   type="text"
-                  list="therapist-suggestions"
+                  list="name-suggestions"
                   style={inputStyle}
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setName(val);
+                    const matched = tenants.find(t => t.name === val);
+                    setSelectedTenantId(matched?.id ?? '');
+                  }}
                   placeholder="הקלד שם חופשי או בחר מהרשימה..."
                   autoFocus
                   autoComplete="off"
                 />
-                <datalist id="therapist-suggestions">
+                <datalist id="name-suggestions">
                   {therapistNames.map(n => <option key={n} value={n} />)}
+                  {tenants.map(t => <option key={`t-${t.id}`} value={t.name} label={`🏢 ${t.name}`} />)}
                 </datalist>
+                {selectedTenantId && (
+                  <div style={{ fontSize: 11, color: '#0369a1', marginTop: 3 }}>🏢 שוכר</div>
+                )}
               </>
             ) : myName ? (
               <input style={disabledInputStyle} value={myName} disabled readOnly />
