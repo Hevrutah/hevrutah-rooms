@@ -136,12 +136,9 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
   const isRecurringEvent = isEdit && state.event.isRecurring;
   const masterEventId = isEdit ? (state.event.recurringEventId ?? '') : '';
 
-  // Use selectedRoomId for create; for edit, room is always the event's calendar
-  const roomId = isEdit ? state.event.calendarId : selectedRoomId;
+  const roomId = selectedRoomId || (isEdit ? state.event.calendarId : '');
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
-  const roomDisplayName = isEdit
-    ? state.room.name
-    : (selectedRoom?.name ?? state.room.name);
+  const roomDisplayName = selectedRoom?.name ?? (isEdit ? state.room.name : state.room.name);
 
   // Permission: admin/coordinator/secretary can edit anything; therapist can only edit their own events
   const myName = user.therapistName?.trim() ?? '';
@@ -180,7 +177,8 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
         if (mode === 'series' && masterEventId) {
           await updateRoomEventSeries(jwt, masterEventId, saveName, startTime, endTime);
         } else {
-          await updateRoomEvent(jwt, editEventId, saveName, startISO, endISO);
+          const movedRoom = selectedRoomId !== state.event.calendarId ? selectedRoomId : undefined;
+          await updateRoomEvent(jwt, editEventId, saveName, startISO, endISO, movedRoom);
         }
       } else {
         // create or duplicate — both call createRoomEvent
@@ -305,27 +303,21 @@ export const EventModal: React.FC<Props> = ({ state, rooms, jwt, user, onClose, 
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Room selection */}
+          {/* Room selection — editable both in create and edit mode */}
           <div>
             <label style={labelStyle}>חדר</label>
-            {isEdit ? (
-              // In edit mode: show room as read-only (moving events between rooms requires delete+create)
-              <input style={disabledInputStyle} value={roomDisplayName} disabled readOnly />
-            ) : (
-              <select
-                style={inputStyle}
-                value={selectedRoomId}
-                onChange={e => setSelectedRoomId(e.target.value)}
-              >
-                {/* Use resolved rooms if available, else fall back to the clicked room */}
-                {rooms.some(r => r.id)
-                  ? rooms.filter(r => r.id).map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))
-                  : <option value={state.room.id || state.room.name}>{state.room.name}</option>
-                }
-              </select>
-            )}
+            <select
+              style={inputStyle}
+              value={selectedRoomId}
+              onChange={e => setSelectedRoomId(e.target.value)}
+            >
+              {rooms.some(r => r.id)
+                ? rooms.filter(r => r.id).map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))
+                : <option value={state.room.id || state.room.name}>{state.room.name}</option>
+              }
+            </select>
           </div>
 
           {/* Name field — therapists + tenants in one datalist */}

@@ -19,7 +19,8 @@
       "Bash(dir \"C:\\\\Users\\\\elakn\")",
       "Bash(find C:Userselaknhevrutah-referrals -name *.ts -o -name *.tsx)",
       "Bash(gh run:*)",
-      "Bash(cmd /c \"cd C:\\\\Users\\\\elakn\\\\hevrutah-referrals && npx tsc --noEmit 2>&1\")"
+      "Bash(cmd /c \"cd C:\\\\Users\\\\elakn\\\\hevrutah-referrals && npx tsc --noEmit 2>&1\")",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

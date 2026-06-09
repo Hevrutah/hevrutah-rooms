@@ -22,9 +22,33 @@ async function apiFetch(jwt: string, path: string, options?: RequestInit) {
   return res;
 }
 
+// ── Fetch ordered room names from server ─────────────────────────
+
+export async function fetchRoomNames(jwt: string): Promise<string[]> {
+  try {
+    const res = await apiFetch(jwt, '/api/rooms?_action=rooms');
+    const data = await res.json() as { names: string[] };
+    return data.names;
+  } catch {
+    return ROOM_CALENDARS.map(r => r.name);
+  }
+}
+
+// ── Rename a room (updates all events server-side) ────────────────
+
+export async function renameRoom(jwt: string, oldName: string, newName: string): Promise<void> {
+  await apiFetch(jwt, '/api/rooms?_action=rename', {
+    method: 'PUT',
+    body: JSON.stringify({ oldName, newName }),
+  });
+}
+
 // ── Fetch events in date range, grouped by room ──────────────────
 
-export async function fetchRoomEvents(jwt: string, start: Date, end: Date): Promise<RoomCalendar[]> {
+export async function fetchRoomEvents(
+  jwt: string, start: Date, end: Date,
+  roomNames?: string[],   // ordered list — controls column order + empty rooms
+): Promise<RoomCalendar[]> {
   const params = new URLSearchParams({
     timeMin: start.toISOString(),
     timeMax: end.toISOString(),
@@ -36,10 +60,11 @@ export async function fetchRoomEvents(jwt: string, start: Date, end: Date): Prom
     isRecurring: boolean; recurringEventId?: string | null; creatorEmail?: string | null;
   }>;
 
-  // Group by room, preserving order from ROOM_CALENDARS
+  // Group by room — use provided roomNames (or ROOM_CALENDARS) to control order + show empty rooms
+  const orderedNames = roomNames ?? ROOM_CALENDARS.map(r => r.name);
   const roomMap = new Map<string, RoomCalendar>();
-  for (const r of ROOM_CALENDARS) {
-    roomMap.set(r.name, { id: r.name, name: r.name, events: [] });
+  for (const name of orderedNames) {
+    roomMap.set(name, { id: name, name, events: [] });
   }
   for (const event of events) {
     if (!roomMap.has(event.roomName)) {
@@ -85,11 +110,12 @@ export async function updateRoomEvent(
   eventId: string,
   summary: string,
   start: string,
-  end: string
+  end: string,
+  newCalendarId?: string,   // pass to move event to a different room
 ): Promise<void> {
   await apiFetch(jwt, `/api/rooms/${encodeURIComponent(eventId)}`, {
     method: 'PUT',
-    body: JSON.stringify({ mode: 'single', summary, start, end }),
+    body: JSON.stringify({ mode: 'single', summary, start, end, ...(newCalendarId ? { calendarId: newCalendarId } : {}) }),
   });
 }
 

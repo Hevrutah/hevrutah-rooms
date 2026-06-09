@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── PUT: update event(s) ────────────────────────────────────────
   if (req.method === 'PUT') {
-    const { mode, summary, start, end } = req.body || {};
+    const { mode, summary, start, end, calendarId: newCalendarId } = req.body || {};
     const events = await getRoomEvents();
 
     if (mode === 'series') {
@@ -43,8 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       await saveRoomEvents(updated);
     } else {
-      // mode = 'single' — id = event ID
-      const updated = events.map(e => e.id === id ? { ...e, summary, start, end } : e);
+      // mode = 'single' — id = event ID; optionally move to a different room
+      const updated = events.map(e => e.id === id ? {
+        ...e, summary, start, end,
+        ...(newCalendarId ? { calendarId: newCalendarId, roomName: newCalendarId } : {}),
+      } : e);
       await saveRoomEvents(updated);
     }
 

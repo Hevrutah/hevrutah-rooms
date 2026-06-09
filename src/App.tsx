@@ -10,7 +10,7 @@ import { AdminPage } from './components/AdminPage';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
 import { fetchAllRoomEvents } from './googleCalendar';
-import { importFromGoogle } from './roomsApi';
+import { importFromGoogle, fetchRoomNames, renameRoom, updateRoomEvent } from './roomsApi';
 import type { CalendarEvent, RoomCalendar, UserInfo } from './types';
 import { GOOGLE_SCOPES, ROOM_COLORS } from './constants';
 
@@ -97,6 +97,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [importKey, setImportKey] = useState(0);
+  const [roomNames, setRoomNames] = useState<string[] | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }) // Sunday
@@ -120,7 +121,13 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
     [viewMode, weekEnd, days]
   );
 
-  const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd);
+  // טעינת שמות חדרים חד-פעמית (ומחדש אחרי שינוי שם)
+  const loadRoomNames = useCallback(async () => {
+    try { setRoomNames(await fetchRoomNames(jwt)); } catch { /* use defaults */ }
+  }, [jwt]);
+  useEffect(() => { void loadRoomNames(); }, [loadRoomNames]);
+
+  const { rooms, loading, error, lastRefresh, refetch } = useCalendarData(jwt, rangeStart, rangeEnd, roomNames);
 
   // When token is expired/invalid — show re-login button instead of auto-logout loop
   const isUnauthorized = !!(error && error.toLowerCase().includes('unauthorized'));
@@ -195,6 +202,23 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
 
   const prevWeek = useCallback(() => setWeekStart(d => addDays(d, -7)), []);
   const nextWeek = useCallback(() => setWeekStart(d => addDays(d,  7)), []);
+
+  // גרירת אירוע לחדר אחר
+  const handleEventMove = useCallback(async (event: CalendarEvent, targetRoomName: string) => {
+    try {
+      await updateRoomEvent(jwt, event.id, event.summary, event.start, event.end, targetRoomName);
+      refetch();
+    } catch (e) { console.error('Move failed:', e); }
+  }, [jwt, refetch]);
+
+  // שינוי שם חדר
+  const handleRoomRename = useCallback(async (oldName: string, newName: string) => {
+    try {
+      await renameRoom(jwt, oldName, newName);
+      await loadRoomNames();
+      refetch();
+    } catch (e) { console.error('Rename failed:', e); }
+  }, [jwt, refetch, loadRoomNames]);
 
   const handleSlotClick = useCallback((room: RoomCalendar, day: Date, hour: number) => {
     setModal({ mode: 'create', room, day, hour });
@@ -389,6 +413,9 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
             days={days}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}
+            onEventMove={user.canManageCalendar ? handleEventMove : undefined}
+            onRoomRename={user.isAdmin ? handleRoomRename : undefined}
+            isAdmin={user.isAdmin}
           />
           <div ref={botSentinel} style={{ height: 1 }} />
         </div>

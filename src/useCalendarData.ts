@@ -4,7 +4,7 @@ import { fetchRoomEvents } from './roomsApi';
 import { detectConflicts } from './utils';
 import { REFRESH_INTERVAL_MS } from './constants';
 
-export function useCalendarData(jwt: string, startDate: Date, endDate: Date) {
+export function useCalendarData(jwt: string, startDate: Date, endDate: Date, roomNames?: string[]) {
   const [rooms, setRooms] = useState<RoomCalendar[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export function useCalendarData(jwt: string, startDate: Date, endDate: Date) {
       const extendedEnd = new Date(endTs);
       extendedEnd.setDate(extendedEnd.getDate() + 1);
 
-      const data = await fetchRoomEvents(jwt, start, extendedEnd);
+      const data = await fetchRoomEvents(jwt, start, extendedEnd, roomNames);
       setRooms(data);
       setConflicts(detectConflicts(data));
       setLastRefresh(new Date());

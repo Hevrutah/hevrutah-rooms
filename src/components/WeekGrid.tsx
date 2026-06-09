@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { format } from 'date-fns';
 import type { RoomCalendar, CalendarEvent } from '../types';
 import { getEventsForDay } from '../utils';
@@ -15,6 +15,9 @@ interface Props {
   days: Date[];
   onSlotClick: (room: RoomCalendar, day: Date, hour: number) => void;
   onEventClick: (event: CalendarEvent, room: RoomCalendar) => void;
+  onEventMove?: (event: CalendarEvent, targetRoomName: string) => void;
+  onRoomRename?: (oldName: string, newName: string) => void;
+  isAdmin?: boolean;
 }
 
 interface EventLayout { event: CalendarEvent; col: number; totalCols: number }
@@ -48,13 +51,24 @@ function calcHeight(s: string, e: string) {
 
 const HOUR_COUNT = HOURS_END - HOURS_START;
 
-export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, onEventClick }) => {
+export const WeekGrid: React.FC<Props> = ({
+  rooms, allRooms, days, onSlotClick, onEventClick,
+  onEventMove, onRoomRename, isAdmin,
+}) => {
   function roomColor(room: RoomCalendar): string {
     const idx = allRooms.findIndex(r => r.id === room.id);
     return ROOM_COLORS[(idx === -1 ? 0 : idx) % ROOM_COLORS.length];
   }
   const hours = Array.from({ length: HOUR_COUNT }, (_, i) => HOURS_START + i);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // ── Drag & drop state ──────────────────────────────────────────
+  const draggedEvent = useRef<{ event: CalendarEvent; sourceRoom: RoomCalendar } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null); // roomName being hovered
+
+  // ── Room rename state ──────────────────────────────────────────
+  const [renamingRoom, setRenamingRoom] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const numRooms = rooms.length || 1;
   const gridCols = `${TIME_W}px repeat(${numRooms}, 1fr)`;
@@ -102,7 +116,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, 
               </div>
             </div>
 
-            {/* Room headers */}
+            {/* Room headers — click to rename (admin only) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: gridCols,
@@ -120,11 +134,48 @@ export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, 
                     color: 'white',
                     background: roomColor(room),
                     borderRight: rIdx < numRooms - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
-                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                     direction: 'rtl',
                   }}
                 >
-                  {room.name}
+                  {isAdmin && onRoomRename && renamingRoom === room.name ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && renameValue.trim() && renameValue.trim() !== room.name) {
+                          onRoomRename(room.name, renameValue.trim());
+                          setRenamingRoom(null);
+                        } else if (e.key === 'Escape') {
+                          setRenamingRoom(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (renameValue.trim() && renameValue.trim() !== room.name) {
+                          onRoomRename(room.name, renameValue.trim());
+                        }
+                        setRenamingRoom(null);
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        width: '90%', fontSize: 10, fontFamily: 'inherit',
+                        background: 'rgba(255,255,255,0.9)', color: '#1e293b',
+                        border: 'none', borderRadius: 3, padding: '1px 4px', direction: 'rtl',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      title={isAdmin ? 'לחץ פעמיים לשינוי שם' : room.name}
+                      onDoubleClick={isAdmin && onRoomRename ? () => { setRenamingRoom(room.name); setRenameValue(room.name); } : undefined}
+                      style={{
+                        display: 'block', overflow: 'hidden', whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                        cursor: isAdmin && onRoomRename ? 'text' : 'default',
+                      }}
+                    >
+                      {room.name}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -150,19 +201,34 @@ export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, 
                   }}>
                     {String(hour).padStart(2, '0')}:00
                   </div>
-                  {rooms.map((room, rIdx) => (
-                    <div
-                      key={rIdx}
-                      onClick={() => onSlotClick(room, day, hour)}
-                      style={{
-                        borderRight: rIdx < numRooms - 1 ? '1px solid #e2e8f0' : 'none',
-                        background: 'white',
-                        cursor: 'pointer',
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = '#f0f9ff'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'white'; }}
-                    />
-                  ))}
+                  {rooms.map((room, rIdx) => {
+                    const isDrop = dropTarget === room.name;
+                    return (
+                      <div
+                        key={rIdx}
+                        onClick={() => onSlotClick(room, day, hour)}
+                        onDragOver={onEventMove ? e => { e.preventDefault(); setDropTarget(room.name); } : undefined}
+                        onDragLeave={onEventMove ? () => setDropTarget(null) : undefined}
+                        onDrop={onEventMove ? e => {
+                          e.preventDefault();
+                          setDropTarget(null);
+                          const d = draggedEvent.current;
+                          if (d && d.sourceRoom.name !== room.name) {
+                            onEventMove(d.event, room.name);
+                          }
+                          draggedEvent.current = null;
+                        } : undefined}
+                        style={{
+                          borderRight: rIdx < numRooms - 1 ? '1px solid #e2e8f0' : 'none',
+                          background: isDrop ? '#dbeafe' : 'white',
+                          cursor: 'pointer',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => { if (!isDrop) (e.currentTarget as HTMLDivElement).style.background = '#f0f9ff'; }}
+                        onMouseLeave={e => { if (!isDrop) (e.currentTarget as HTMLDivElement).style.background = 'white'; }}
+                      />
+                    );
+                  })}
                 </div>
               ))}
 
@@ -197,8 +263,15 @@ export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, 
                         return (
                           <div
                             key={event.id}
+                            draggable={!!onEventMove}
+                            onDragStart={onEventMove ? e => {
+                              draggedEvent.current = { event, sourceRoom: room };
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', event.id);
+                            } : undefined}
+                            onDragEnd={onEventMove ? () => { draggedEvent.current = null; setDropTarget(null); } : undefined}
                             onClick={e => { e.stopPropagation(); onEventClick(event, room); }}
-                            title={`${event.summary}\n${sFmt}–${eFmt}\nלחץ לעריכה`}
+                            title={`${event.summary}\n${sFmt}–${eFmt}\nלחץ לעריכה${onEventMove ? ' • גרור לחדר אחר' : ''}`}
                             style={{
                               position: 'absolute',
                               top, height: height - 2,
@@ -207,7 +280,7 @@ export const WeekGrid: React.FC<Props> = ({ rooms, allRooms, days, onSlotClick, 
                               background: color, color: 'white',
                               borderRadius: 3, padding: '2px 3px',
                               fontSize: 10, fontWeight: 600,
-                              overflow: 'hidden', cursor: 'pointer',
+                              overflow: 'hidden', cursor: onEventMove ? 'grab' : 'pointer',
                               pointerEvents: 'auto', zIndex: 2, direction: 'rtl',
                               boxShadow: '0 1px 3px rgba(0,0,0,0.18)', boxSizing: 'border-box',
                             }}

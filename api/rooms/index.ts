@@ -72,6 +72,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch { return res.json([]); }
   }
 
+  // ── GET ?_action=rooms — רשימת שמות חדרים ייחודיים (ממוינים לפי סדר ברירת מחדל) ──
+  if (action === 'rooms' && req.method === 'GET') {
+    if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
+    const allEvents = await getRoomEvents();
+    const DEFAULT_ORDER = ['החדר האפור', 'החדר של יעד', 'חדר אמצעי', 'חדר חדש', 'חדר קבוצות', 'חדר שמאלי'];
+    const names = [...new Set(allEvents.map(e => e.roomName).filter(Boolean))];
+    names.sort((a, b) => {
+      const ai = DEFAULT_ORDER.indexOf(a), bi = DEFAULT_ORDER.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b, 'he');
+    });
+    // Always include defaults even if no events yet
+    for (const d of DEFAULT_ORDER) { if (!names.includes(d)) names.splice(DEFAULT_ORDER.indexOf(d), 0, d); }
+    return res.json({ names });
+  }
+
+  // ── PUT ?_action=rename — שינוי שם חדר + עדכון כל האירועים ──────────────────
+  if (action === 'rename' && req.method === 'PUT') {
+    if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
+    const { oldName, newName } = req.body as { oldName?: string; newName?: string } || {};
+    if (!oldName?.trim() || !newName?.trim())
+      return res.status(400).json({ error: 'Missing oldName or newName' });
+    const allEvents = await getRoomEvents();
+    const updated = allEvents.map(e =>
+      e.roomName === oldName ? { ...e, roomName: newName.trim(), calendarId: newName.trim() } : e
+    );
+    await saveRoomEvents(updated);
+    return res.json({ ok: true, count: updated.filter(e => e.roomName === newName.trim()).length });
+  }
+
   if (!verifyJwt(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
