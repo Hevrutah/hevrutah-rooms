@@ -294,7 +294,9 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
               מנהל
             </span>
           )}
-          <button onClick={() => setShowHoursReport(true)} style={navBtnStyle}>📊 דו"ח שעות</button>
+          {['היה', 'אלה היימן', 'יעד מידן'].includes(user.name) && (
+            <button onClick={() => setShowHoursReport(true)} style={navBtnStyle}>📊 דו"ח שעות</button>
+          )}
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
