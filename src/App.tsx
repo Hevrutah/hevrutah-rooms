@@ -7,6 +7,7 @@ import { WeekGrid } from './components/WeekGrid';
 import { WeekCalendarView } from './components/WeekCalendarView';
 import { EventModal } from './components/EventModal';
 import { AdminPage } from './components/AdminPage';
+import { HoursReport } from './components/HoursReport';
 import type { ModalState } from './components/EventModal';
 import { useCalendarData } from './useCalendarData';
 import { fetchAllRoomEvents } from './googleCalendar';
@@ -96,6 +97,7 @@ function ImportCalendarButton({ jwt, onImported }: { jwt: string; onImported: ()
 function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo; onUnauthorized: () => void; }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showHoursReport, setShowHoursReport] = useState(false);
   const [importKey, setImportKey] = useState(0);
   const [roomNames, setRoomNames] = useState<string[] | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -292,6 +294,7 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
               מנהל
             </span>
           )}
+          <button onClick={() => setShowHoursReport(true)} style={navBtnStyle}>📊 דו"ח שעות</button>
           {user.isAdmin && (
             <button onClick={() => setShowAdmin(true)} style={navBtnStyle}>⚙️ ניהול</button>
           )}
@@ -419,6 +422,10 @@ function Dashboard({ jwt, user, onUnauthorized }: { jwt: string; user: UserInfo;
           />
           <div ref={botSentinel} style={{ height: 1 }} />
         </div>
+      )}
+
+      {showHoursReport && (
+        <HoursReport jwt={jwt} onClose={() => setShowHoursReport(false)} />
       )}
 
       <EventModal
