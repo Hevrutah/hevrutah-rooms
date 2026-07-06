@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import type { UserInfo } from '../types';
 
+interface MonthlyReport {
+  id: string;
+  month: string;
+  createdAt: string;
+  externalRenters: Array<{
+    name: string;
+    eventCount: number;
+    totalHours: number;
+    events: Array<{ start: string; end: string; roomName: string }>;
+  }>;
+}
+
 interface AppUser {
   id: string;
   name: string;
@@ -31,6 +43,8 @@ const inputStyle: React.CSSProperties = {
 };
 
 export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
+  const [tab, setTab] = useState<'users' | 'reports'>('users');
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', direction: 'rtl', fontFamily: "'Segoe UI', 'Arial', sans-serif" }}>
       <div style={{ background: 'linear-gradient(90deg, #1e3a5f 0%, #2563eb 100%)', color: 'white', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -40,8 +54,24 @@ export const AdminPage: React.FC<Props> = ({ jwt, user, onClose }) => {
           ← חזרה ללוח
         </button>
       </div>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e2e8f0', background: 'white', padding: '0 28px' }}>
+        {([['users', '👥 משתמשים'], ['reports', '📊 דוחות חודשיים']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            style={{
+              padding: '12px 20px', background: 'none', border: 'none',
+              borderBottom: tab === key ? '2px solid #2563eb' : '2px solid transparent',
+              color: tab === key ? '#2563eb' : '#64748b',
+              fontWeight: tab === key ? 700 : 400,
+              fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >{label}</button>
+        ))}
+      </div>
       <div style={{ padding: '24px 28px', maxWidth: 780 }}>
-        <UsersTab jwt={jwt} user={user} />
+        {tab === 'users' && <UsersTab jwt={jwt} user={user} />}
+        {tab === 'reports' && <ReportsTab jwt={jwt} />}
       </div>
     </div>
   );
@@ -357,6 +387,144 @@ const UsersTab: React.FC<{ jwt: string; user: UserInfo }> = ({ jwt, user }) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Reports Tab ───────────────────────────────────────────────────────────────
+
+function formatHours(h: number): string {
+  const whole = Math.floor(h);
+  const mins = Math.round((h - whole) * 60);
+  return mins === 0 ? `${whole}ש'` : `${whole}ש' ${mins}ד'`;
+}
+
+function formatMonthLabel(id: string): string {
+  const [year, month] = id.split('-');
+  const monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+}
+
+const ReportsTab: React.FC<{ jwt: string }> = ({ jwt }) => {
+  const [reports, setReports] = useState<MonthlyReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchReports();
+  }, []);
+
+  async function fetchReports() {
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch('/api/cron/monthly-report', {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      if (!res.ok) throw new Error('שגיאה בטעינת דוחות');
+      setReports(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function triggerNow() {
+    setTriggering(true); setTriggerMsg(null);
+    try {
+      const res = await fetch('/api/cron/monthly-report', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      });
+      const data = await res.json() as { externalRenters?: number; error?: string };
+      if (!res.ok) throw new Error(data.error || 'שגיאה');
+      setTriggerMsg(`✅ הדוח נוצר — ${data.externalRenters ?? 0} שוכרים חיצוניים`);
+      void fetchReports();
+    } catch (e) {
+      setTriggerMsg(`❌ ${e instanceof Error ? e.message : 'שגיאה'}`);
+    } finally {
+      setTriggering(false);
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>דוחות שוכרים חיצוניים</h2>
+        <button
+          onClick={() => void triggerNow()}
+          disabled={triggering}
+          style={{ padding: '8px 16px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+        >{triggering ? '⟳ מריץ...' : '▶ הרץ עכשיו (חודש קודם)'}</button>
+      </div>
+
+      {triggerMsg && (
+        <div style={{ padding: '10px 14px', borderRadius: 7, marginBottom: 14, fontSize: 13, background: triggerMsg.startsWith('✅') ? '#f0fdf4' : '#fef2f2', border: `1px solid ${triggerMsg.startsWith('✅') ? '#bbf7d0' : '#fecaca'}`, color: triggerMsg.startsWith('✅') ? '#15803d' : '#dc2626' }}>
+          {triggerMsg}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>
+        הדוח רץ אוטומטית ב-1 לכל חודש ב-03:00 ושולח הודעת טלגרם להייה.
+      </div>
+
+      {loading ? (
+        <div style={{ color: '#94a3b8', textAlign: 'center', padding: 24 }}>טוען...</div>
+      ) : error ? (
+        <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>
+      ) : reports.length === 0 ? (
+        <div style={{ color: '#94a3b8', textAlign: 'center', padding: 24 }}>אין דוחות עדיין</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {reports.map(r => (
+            <div key={r.id} style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <div
+                onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>📅 {formatMonthLabel(r.id)}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                    {r.externalRenters.length} שוכרים חיצוניים ·{' '}
+                    נוצר: {new Date(r.createdAt).toLocaleDateString('he-IL')}
+                  </div>
+                </div>
+                <span style={{ color: '#94a3b8', fontSize: 18 }}>{expanded === r.id ? '▲' : '▼'}</span>
+              </div>
+
+              {expanded === r.id && (
+                <div style={{ borderTop: '1px solid #e2e8f0' }}>
+                  {r.externalRenters.length === 0 ? (
+                    <div style={{ padding: '14px 18px', color: '#94a3b8', fontSize: 13 }}>אין שוכרים חיצוניים</div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          {['שם', 'מס׳ פגישות', 'סה"כ שעות'].map(h => (
+                            <th key={h} style={{ padding: '8px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.externalRenters.map((renter, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '9px 16px', fontWeight: 600, color: '#1e293b' }}>{renter.name}</td>
+                            <td style={{ padding: '9px 16px', color: '#475569' }}>{renter.eventCount}</td>
+                            <td style={{ padding: '9px 16px', fontWeight: 700, color: '#2563eb' }}>{formatHours(renter.totalHours)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
