@@ -1,10 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { Redis } from '@upstash/redis';
 import { getRoomEvents } from '../lib/rooms-db.js';
 import { getMonthlyReports, saveMonthlyReport } from '../lib/reports-db.js';
 import type { MonthlyReport, ExternalRenterEntry } from '../lib/reports-db.js';
 import { sendTelegramMessage } from '../lib/telegram.js';
 import { setCorsHeaders } from '../lib/cors.js';
+
+async function getHayahChatId(): Promise<string | null> {
+  // Prefer explicit env var; fall back to reading from shared Redis (referrals users)
+  if (process.env.HAYAH_TELEGRAM_CHAT_ID) return process.env.HAYAH_TELEGRAM_CHAT_ID;
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
+  try {
+    const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+    const users = await redis.get<Array<{ name?: string; telegramChatId?: string | null }>>('hevrutah:users:v2');
+    const hayah = users?.find(u => u.name && (u.name.includes('הייה') || u.name.includes('היה')));
+    return hayah?.telegramChatId || null;
+  } catch { return null; }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error('JWT_SECRET env var is not configured');
@@ -86,7 +99,7 @@ async function runMonthlyReport(): Promise<{ report: MonthlyReport; sent: boolea
   };
   await saveMonthlyReport(report);
 
-  const hayahChatId = process.env.HAYAH_TELEGRAM_CHAT_ID;
+  const hayahChatId = await getHayahChatId();
   let sent = false;
   if (hayahChatId) {
     const lines = externalRenters.length === 0
